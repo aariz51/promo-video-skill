@@ -1,0 +1,29 @@
+{
+  "name": "promo-video-template",
+  "version": "1.0.0",
+  "description": "Premium SaaS/app launch film — Remotion template (part of the Promo-Video Claude skill)",
+  "license": "MIT",
+  "private": true,
+  "dependencies": {
+    "@remotion/cli": "4.0.481",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "remotion": "4.0.481"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.7",
+    "@types/web": "0.0.166",
+    "prettier": "3.8.1",
+    "typescript": "5.9.3"
+  },
+  "scripts": {
+    "dev": "remotion studio",
+    "typecheck": "tsc --noEmit",
+    "audio": "python3 scripts/build_audio.py",
+    "render": "remotion render PromoVertical out/promo-vertical.mp4 --crf 18",
+    "render:vertical": "remotion render PromoVertical out/promo-vertical.mp4 --crf 18",
+    "render:landscape": "remotion render PromoLandscape out/promo-landscape.mp4 --crf 18",
+    "render:store": "remotion render PromoStorePortrait out/promo-store-886x1920.mp4 --crf 18",
+    "render:store-wide": "remotion render PromoStoreLandscape out/promo-store-1920x886.mp4 --crf 18"
+  }
+}

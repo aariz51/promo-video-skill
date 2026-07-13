@@ -1,0 +1,17 @@
+# dependencies / build output
+node_modules/
+out/
+dist/
+
+# audio VO cache (regenerable)
+**/scripts/.vo_cache/
+
+# secrets — never commit API keys
+*.key
+.env
+.env.*
+**/openrouter*key*
+
+# os / editor
+.DS_Store
+*.log
