@@ -1,0 +1,27 @@
+Third-party assets bundled with promo-video-skill
+=================================================
+
+The project itself is MIT licensed (see LICENSE). The following bundled assets
+carry their own terms:
+
+Fonts
+-----
+`skills/promo-video/template/public/fonts/Inter.ttf`
+`skills/promo-video/template/public/fonts/Baloo2.ttf`
+    Licensed under the SIL Open Font License 1.1.
+    https://scripts.sil.org/OFL
+
+Sound effects
+-------------
+`skills/promo-video/template/public/sfx/*.mp3`
+    Provided as development placeholders. Their provenance has not been
+    verified for commercial redistribution. Verify licensing before using them
+    in a commercial release, or replace them with effects you have the rights
+    to. The audio builder reads whatever is in that directory, so swapping them
+    requires no code changes.
+
+Runtime dependency
+------------------
+Remotion (https://remotion.dev) has its own licence terms, which may require a
+company licence for commercial use. It is a peer dependency of the generated
+project, not redistributed here.
