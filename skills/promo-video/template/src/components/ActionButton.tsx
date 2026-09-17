@@ -1,9 +1,9 @@
 import React from "react";
 import { COLORS, FONT_HEAD } from "../theme";
 
-// The SafeMama scan button — glassy purple orb with a scan-reticle glyph.
+// The primary action button — glassy brand-colour orb with a reticle glyph.
 // Reused in the "One tap" and "Press" scenes.
-export const ScanButton: React.FC<{
+export const ActionButton: React.FC<{
   size?: number;
   glowStrength?: number; // 0..1
   press?: number; // 0..1 pressed-down

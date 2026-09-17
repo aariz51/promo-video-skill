@@ -54,9 +54,9 @@ export const S1_Hook: React.FC = () => {
           maxWidth={wide ? "62%" : "86%"}
           words={[
             { text: "Every" },
-            { text: "label" },
-            { text: "raises" },
-            { text: "a" },
+            { text: "day," },
+            { text: "the" },
+            { text: "same" },
             { text: "question.", color: COLORS.purple },
           ]}
         />

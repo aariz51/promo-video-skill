@@ -32,7 +32,7 @@ export const S4_Verdict: React.FC = () => {
       <Particles count={16} opacity={0.55} />
 
       <AbsoluteFill style={{ flexDirection: "column", alignItems: "center", justifyContent: "center", gap: wide ? 20 : 30 }}>
-        {/* eyebrow — "scan complete" */}
+        {/* eyebrow — the "we are done thinking" cue */}
         <div
           style={{
             opacity: eyebrow,
@@ -50,7 +50,7 @@ export const S4_Verdict: React.FC = () => {
             <path d="M5 13l4 4L19 7" stroke={COLORS.safe} strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           <span style={{ fontFamily: FONT_BODY, fontWeight: 700, fontSize: 30, color: COLORS.safe, letterSpacing: 2 }}>
-            SCAN COMPLETE
+            ANSWER READY
           </span>
         </div>
 
@@ -70,7 +70,7 @@ export const S4_Verdict: React.FC = () => {
           Organic Oat Cereal
         </div>
 
-        {/* signature safety gauge */}
+        {/* signature score gauge */}
         <ScoreRing
           frame={frame}
           score={92}
@@ -82,7 +82,7 @@ export const S4_Verdict: React.FC = () => {
           span={RING_SPAN}
         />
 
-        {/* SAFE verdict pill */}
+        {/* verdict pill */}
         <div
           style={{
             transform: `scale(${interpolate(pill, [0, 1], [0.5, 1])})`,
@@ -104,7 +104,7 @@ export const S4_Verdict: React.FC = () => {
           <svg width={wide ? 38 : 46} height={wide ? 38 : 46} viewBox="0 0 24 24" fill="none">
             <path d="M5 13l4 4L19 7" stroke="#fff" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          SAFE FOR BABY
+          ALL CLEAR
         </div>
       </AbsoluteFill>
 

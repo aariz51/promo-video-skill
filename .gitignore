@@ -15,3 +15,13 @@ dist/
 # os / editor
 .DS_Store
 *.log
+
+# python bytecode
+__pycache__/
+*.py[cod]
+
+# generated audio master (rebuild with `npm run audio`)
+**/public/audio/
+
+# stray root lockfile — there is no root package.json; the template has its own
+/package-lock.json

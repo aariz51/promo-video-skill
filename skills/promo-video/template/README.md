@@ -1,65 +1,90 @@
-# Promo film — Remotion template
+# Promo film template (Remotion)
 
-A complete, production-ready launch-film project. The `promo-video` skill copies this,
-then rewrites it for your app. You can also drive it by hand.
+A complete, working launch-film project: 9 scenes, 4 compositions, a shared motion
+vocabulary, and a keyless sound-design pipeline.
 
-## Quick start
+This is the infrastructure the [`promo-video` skill](../SKILL.md) scaffolds from. You can
+also just use it directly as a Remotion starter.
+
+**It renders on a fresh clone.** The shipped brand, copy, screens and logo are neutral
+placeholders — replace them with yours.
+
+## Run it
 
 ```bash
 npm install
-# drop your assets:
-#   public/app-screens/*.png   ← your app screenshots
-#   public/logo/app-logo.png   ← your logo (with wordmark)
-# edit src/theme.ts            ← COLORS, `screens` map, LOGO, fonts (src/fonts.ts)
-# edit src/scenes/*.tsx        ← copy, featured screens, tagline, logo lockup
-npm run dev                    # preview in Remotion Studio
-```
-
-## Audio (optional)
-
-```bash
-export OPENROUTER_API_KEY="sk-or-v1-..."   # for the AI voiceover (openai/gpt-audio, voice coral)
-python3 scripts/build_audio.py             # → public/audio/master.wav
-```
-Edit the `VO` script and `FX` timeline in `scripts/build_audio.py`. Keep VO start times
-aligned to `T` in `theme.ts`. No voiceover? Set `AUDIO_SRC = null` in `theme.ts`.
-
-## Render
-
-```bash
-npm run render:vertical     # PromoVertical      1080×1920  → out/promo-vertical.mp4
-npm run render:landscape    # PromoLandscape     1920×1080  → out/promo-landscape.mp4
-npm run render:store        # PromoStorePortrait  886×1920  → out/promo-store-886x1920.mp4
-npm run render:store-wide   # PromoStoreLandscape 1920×886  → out/promo-store-1920x886.mp4
+npm run dev          # Remotion Studio — scrub the timeline
 npm run typecheck
 ```
 
-All four compositions are the **same film** — every scene is orientation-aware
-(`const wide = width > height`) and they share one audio master (timing is frame-locked
-in `theme.ts`, so the prebuilt `master.wav` stays in sync).
+Render:
 
-## Structure
-
-```
-src/
-├── Root.tsx            # the 4 compositions
-├── Film.tsx            # master timeline: <Sequence> per scene + <Audio>
-├── theme.ts            # ★ BRAND: colors, fonts, screens map, LOGO, timing (T/dur), AUDIO_SRC
-├── fonts.ts            # @font-face wiring (swap the TTFs in public/fonts)
-├── scenes/S1..S9.tsx   # the 9 beats — orientation-aware; rewrite copy/screens per app
-├── components/         # PhoneFrame, GlassCard, Cursor, Confetti, KineticWords,
-│                       #   Bloom, Whoosh, Particles, ScoreRing, ScanButton, FontLoader
-└── animations/         # springs.ts, easings.ts, motion.ts — one motion vocabulary
-scripts/build_audio.py  # streaming OpenRouter VO + meaningful SFX → public/audio/master.wav
-public/{sfx,fonts}/     # reusable, brand-agnostic
+```bash
+npm run render:vertical     # 1080×1920  Reels / TikTok / Shorts / Stories
+npm run render:landscape    # 1920×1080  YouTube / web hero
+npm run render:store        #  886×1920  App Store preview (portrait)
+npm run render:store-wide   # 1920×886   App Store preview (landscape)
 ```
 
-## Engineering standards
-Latest Remotion, React 19, strict TypeScript, 60fps. All motion is frame-derived
-(`useCurrentFrame`, `interpolate`, `spring`, `Easing.bezier`) — no CSS transitions, no
-`Math.random()`/`Date.now()` at render (deterministic seeded particles/confetti). Assets via
-`staticFile()`. One pre-mixed audio master (avoids multi-clip stutter). See
-`../docs/motion-language.md` for the design grammar.
+## Make it yours
 
-> The shipped scenes are a **worked example** (a warm pregnancy-safety scanner) so there's
-> real, premium code to adapt — replace copy, colors, screens, tagline and logo for your app.
+**1. `src/theme.ts` — start here.** It is the single source of truth for brand and timing.
+
+- `COLORS` — swap for the app's real palette (sample it from the screenshots).
+- `screens` — seven slots. `dashboard` is the hero/money shot in `S7_Dashboard`; the
+  other six ride the orbit ring in `S6_DeviceOrbit`. Keep the key names, change the paths.
+- `LOGO` — your logo, ideally square and including the wordmark.
+- `T` / `dur` — scene boundaries in frames. If you change these, change `DUR` and the
+  cue times in `scripts/build_audio.py` to match. They are the same timeline.
+
+**2. Assets.** Drop PNGs into `public/app-screens/` and `public/logo/app-logo.png`,
+replacing the placeholders. Screens are portrait phone captures (`SCREEN_RATIO` ≈ 0.4615);
+scenes `objectFit: cover` from the top, so full-height captures look best.
+
+To regenerate the placeholders instead: `python3 scripts/make_placeholders.py` (needs Pillow).
+
+**3. Fonts.** `src/fonts.ts` — match the type personality of the brand.
+
+**4. Scenes.** Rewrite the copy, the featured screens, the tagline and the logo lockup in
+`src/scenes/`. The nine shipped scenes are *one worked example* — add, drop and reorder
+them to suit your film (see [`../docs/scene-kit.md`](../docs/scene-kit.md)). Keep the motion language (see [`../docs/motion-language.md`](../docs/motion-language.md)):
+spring-everything, float-idle, single-hero composition, light-bloom and whoosh stitches,
+a cursor that presses real UI, a reward beat, a period-rhythm tagline.
+
+**5. Audio.** Rewrite the `FX` timeline in `scripts/build_audio.py` so every sound maps
+to something on screen, then:
+
+```bash
+npm run audio      # no API key, no network — ffmpeg only
+```
+
+Then set `AUDIO_SRC = "audio/master.wav"` in `theme.ts`. It ships as `null` so a fresh
+clone renders silently instead of failing on a master that does not exist yet.
+
+## How it is put together
+
+- **`Root.tsx`** registers four compositions that all render the same `Film`. Every scene
+  branches on `const wide = width > height`, so portrait *stacks* and landscape *spreads*
+  while the timeline stays identical — which is what lets one audio master sync to all four.
+- **`animations/`** is the shared motion vocabulary: `springs.ts` (enter / pop / settle /
+  bounce), `easings.ts` (one set of bezier curves), `motion.ts` (bob, sway, pulse, ramp,
+  push-in, deterministic seed). Nothing uses `Math.random()` or `Date` — renders must be
+  deterministic across frames.
+- **`components/`** are the reusable props: `PhoneFrame`, `GlassCard`, `Cursor`,
+  `KineticWords`, `ScoreRing`, `ActionButton`, `Bloom`, `Whoosh`, `Confetti`, `Particles`,
+  `FontLoader`.
+
+## Credibility guardrails
+
+Carried over from the skill, and worth keeping:
+
+- Never let an overlaid number or label contradict the screenshot behind it.
+- Avoid alarming empty-states in a reassurance film.
+- Don't invent statistics. Prefer qualitative, on-message callouts.
+- The money shot must be clean and believable — it is the spine of the film.
+
+## Licenses
+
+Fonts: Inter & Baloo 2 (SIL OFL). Bundled SFX are placeholders — verify their licensing
+before commercial use, or replace them. Remotion has its own license terms for commercial
+use; check them.

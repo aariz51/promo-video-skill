@@ -3,7 +3,7 @@ import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate } from "remo
 import { COLORS, BG_RADIAL, dur } from "../theme";
 import { Particles } from "../components/Particles";
 import { Cursor } from "../components/Cursor";
-import { ScanButton } from "../components/ScanButton";
+import { ActionButton } from "../components/ActionButton";
 import { Bloom } from "../components/Bloom";
 import { EASE } from "../animations/easings";
 
@@ -67,7 +67,7 @@ export const S3_Press: React.FC = () => {
             }}
           />
         )}
-        <ScanButton size={300} glowStrength={0.5 + pressProg * 0.5} press={pressed} />
+        <ActionButton size={300} glowStrength={0.5 + pressProg * 0.5} press={pressed} />
       </AbsoluteFill>
 
       {dive < 1.6 && <Cursor x={curX} y={curY} scale={1.4} pressed={pressProg} />}

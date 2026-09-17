@@ -3,7 +3,7 @@ import { interpolate } from "remotion";
 import { COLORS, FONT_HEAD } from "../theme";
 import { EASE } from "../animations/easings";
 
-// SafeMama's signature safety gauge: an arc that sweeps to a score with the
+// A signature score gauge: an arc that sweeps to a value with the
 // number counting up. Drive with local `frame`; sweep over [start, start+span].
 export const ScoreRing: React.FC<{
   frame: number;

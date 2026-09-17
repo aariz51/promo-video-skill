@@ -33,7 +33,7 @@ export const S7_Dashboard: React.FC = () => {
   const phoneCx = wide ? width * 0.32 : width / 2;
   const phoneCy = wide ? height * 0.54 : height * 0.58;
 
-  // cursor travels in and taps the "Open Pregnancy Tracker" button
+  // cursor travels in and taps the primary call-to-action
   const curX = interpolate(frame, [10, TAP], [width + 120, phoneCx + (wide ? 30 : 40)], {
     extrapolateRight: "clamp",
     easing: EASE.out,
@@ -121,7 +121,7 @@ export const S7_Dashboard: React.FC = () => {
             <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.05 }}>
               <div style={{ fontFamily: FONT_HEAD, fontWeight: 800, fontSize: 40, color: "#fff" }}>On track</div>
               <div style={{ fontFamily: FONT_BODY, fontWeight: 500, fontSize: 24, color: "rgba(255,255,255,0.92)" }}>
-                you &amp; baby
+                this week
               </div>
             </div>
           </div>

@@ -6,7 +6,7 @@ import { FONT_FACE_CSS } from "../fonts";
 // the render (delayRender) until document.fonts.ready resolves. delayRender is
 // called inside the component (once, via useState) — never at module scope.
 export const FontLoader: React.FC = () => {
-  const [handle] = useState(() => delayRender("Loading SafeMama fonts"));
+  const [handle] = useState(() => delayRender("Loading film fonts"));
 
   useEffect(() => {
     let cancelled = false;

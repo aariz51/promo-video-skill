@@ -4,12 +4,12 @@ import { COLORS, BG_RADIAL, FONT_HEAD, dur } from "../theme";
 import { Particles } from "../components/Particles";
 import { Bloom } from "../components/Bloom";
 import { Cursor } from "../components/Cursor";
-import { ScanButton } from "../components/ScanButton";
+import { ActionButton } from "../components/ActionButton";
 import { sEnter, sPop } from "../animations/springs";
 import { bob, pulse, tailFade } from "../animations/motion";
 import { EASE } from "../animations/easings";
 
-// Scene 2 — "One scan. Zero doubt." The promise + the glowing scan button.
+// Scene 2 — "One tap. Zero doubt." The promise + the glowing scan button.
 export const S2_OneTap: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps, width, height } = useVideoConfig();
@@ -59,7 +59,7 @@ export const S2_OneTap: React.FC = () => {
               transform: `translateY(${interpolate(l1, [0, 1], [40, 0])}px)`,
             }}
           >
-            One scan.
+            One tap.
           </span>
           <br />
           <span
@@ -84,7 +84,7 @@ export const S2_OneTap: React.FC = () => {
           transform: `translate(-50%, -50%) scale(${interpolate(btn, [0, 1], [0.3, 1])})`,
         }}
       >
-        <ScanButton size={300} glowStrength={0.4 + glow * 0.5} />
+        <ActionButton size={300} glowStrength={0.4 + glow * 0.5} />
       </div>
 
       <Cursor x={curX} y={curY} scale={1.4} />

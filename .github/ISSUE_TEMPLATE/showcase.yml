@@ -1,0 +1,19 @@
+name: Showcase a result
+description: Share a film you made with the skill
+labels: [showcase]
+body:
+  - type: input
+    id: ref
+    attributes:
+      label: Reference video URL
+    validations: {required: true}
+  - type: input
+    id: result
+    attributes:
+      label: Your generated film
+    validations: {required: true}
+  - type: textarea
+    id: notes
+    attributes:
+      label: What worked, what you had to fix by hand
+      description: The "had to fix by hand" part is the most useful thing you can write here.

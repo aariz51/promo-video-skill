@@ -39,7 +39,7 @@ const StoreBadge: React.FC<{ top: string; bottom: string; delay: number }> = ({ 
   );
 };
 
-// Scene 9 — Logo lockup. The real SafeMama app logo lands as a soft rounded
+// Scene 9 — Logo lockup. The app logo lands as a soft rounded
 // tile, pulses like a heartbeat, then the tagline + store badges resolve.
 export const S9_Logo: React.FC = () => {
   const frame = useCurrentFrame();
@@ -108,7 +108,7 @@ export const S9_Logo: React.FC = () => {
           textAlign: "center",
         }}
       >
-        Your AI Pregnancy Safety Companion
+        Your one-line product tagline
       </div>
 
       {/* store badges */}

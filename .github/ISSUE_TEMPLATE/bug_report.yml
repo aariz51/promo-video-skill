@@ -1,0 +1,38 @@
+name: Bug report
+description: Something in the skill or the Remotion template did not work
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you expected, and what you got instead.
+    validations: {required: true}
+  - type: input
+    id: stage
+    attributes:
+      label: Which stage?
+      description: e.g. watching the reference, scaffolding, npm install, audio build, render
+    validations: {required: true}
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Include the reference URL if the problem is in the analysis step.
+      value: |
+        1.
+        2.
+        3.
+    validations: {required: true}
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error output
+      render: shell
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      description: "Agent host, OS, and: node -v / python3 -V / ffmpeg -version | head -1"
+      render: shell
+    validations: {required: true}

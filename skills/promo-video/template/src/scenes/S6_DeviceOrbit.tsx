@@ -8,18 +8,19 @@ import { tailFade, pushIn } from "../animations/motion";
 import { EASE } from "../animations/easings";
 
 // Real app screens ride the ring — the breadth of the product, in motion.
-// Deliberately omits the health-score empty-state (an off-message low number).
+// Pick six screens that SELL: skip empty-states and any screen whose numbers
+// would contradict the copy on top of it.
 const RING = [
-  screens.scanMode,
-  screens.expert,
-  screens.tools,
-  screens.community,
-  screens.guide,
-  screens.history,
+  screens.detail,
+  screens.search,
+  screens.library,
+  screens.profile,
+  screens.settings,
+  screens.result,
 ];
 
 // Scene 6 — Device orbit. Real app screens orbit in a 3D ring around the promise
-// headline "Everything for you & baby." Portrait: tall ring, headline up top.
+// headline "Everything built around you." Portrait: tall ring, headline up top.
 // Landscape: wide ring, headline centred.
 export const S6_DeviceOrbit: React.FC = () => {
   const frame = useCurrentFrame();
@@ -115,7 +116,7 @@ export const S6_DeviceOrbit: React.FC = () => {
         >
           <span style={{ color: COLORS.purple }}>Everything</span>
           <br />
-          for you &amp; baby.
+          built around you.
         </div>
       </AbsoluteFill>
     </AbsoluteFill>

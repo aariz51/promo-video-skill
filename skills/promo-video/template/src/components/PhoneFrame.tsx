@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Img, staticFile } from "remotion";
 import { SCREEN_RATIO, COLORS } from "../theme";
 
@@ -12,6 +12,7 @@ export const PhoneFrame: React.FC<{
   bezel?: number;
   shadow?: boolean;
 }> = ({ src, width, glow, radius, bezel, shadow = true }) => {
+  const [failed, setFailed] = useState(false);
   const b = bezel ?? Math.max(8, width * 0.03);
   const r = radius ?? width * 0.14;
   const screenW = width - b * 2;
@@ -45,10 +46,44 @@ export const PhoneFrame: React.FC<{
           background: COLORS.cream,
         }}
       >
-        <Img
-          src={staticFile(src)}
-          style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top" }}
-        />
+        {failed ? (
+          // A missing screenshot must not cancel a 33s render at frame 1700.
+          // Show a labelled placeholder and let the render finish, so the
+          // problem is visible in the output instead of fatal.
+          <div
+            style={{
+              width: "100%",
+              height: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: screenW * 0.08,
+              boxSizing: "border-box",
+              textAlign: "center",
+              background: `repeating-linear-gradient(45deg, ${COLORS.creamDeep} 0 ${screenW * 0.04}px, ${COLORS.cream} ${screenW * 0.04}px ${screenW * 0.08}px)`,
+              color: COLORS.inkSoft,
+              fontSize: screenW * 0.07,
+              fontWeight: 700,
+              lineHeight: 1.3,
+              wordBreak: "break-word",
+            }}
+          >
+            {`missing screen\n${src}`}
+          </div>
+        ) : (
+          <Img
+            src={staticFile(src)}
+            onError={() => {
+              // eslint-disable-next-line no-console
+              console.warn(
+                `[PhoneFrame] could not load "${src}". Check public/${src} exists and that ` +
+                  `\`screens\` in src/theme.ts points at it.`,
+              );
+              setFailed(true);
+            }}
+            style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top" }}
+          />
+        )}
       </div>
       {/* dynamic island */}
       <div

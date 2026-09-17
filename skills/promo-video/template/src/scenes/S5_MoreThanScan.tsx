@@ -30,8 +30,8 @@ const Icon = {
 };
 
 const FEATS: Feat[] = [
-  { label: "Health Score", sub: "Your wellness, tracked", tint: COLORS.pink, icon: Icon.health, dir: -1 },
-  { label: "Ask an Expert", sub: "AI pregnancy guidance", tint: COLORS.purple, icon: Icon.expert, dir: 1 },
+  { label: "Live Score", sub: "Tracked over time", tint: COLORS.pink, icon: Icon.health, dir: -1 },
+  { label: "Ask an Expert", sub: "AI guidance, on call", tint: COLORS.purple, icon: Icon.expert, dir: 1 },
   { label: "Docs & Reports", sub: "Understand every result", tint: COLORS.gold, icon: Icon.docs, dir: -1 },
 ];
 
@@ -61,9 +61,9 @@ export const S5_MoreThanScan: React.FC = () => {
         }}
       >
         {wide ? (
-          <>More than a <span style={{ color: COLORS.purple }}>scanner.</span></>
+          <>More than an <span style={{ color: COLORS.purple }}>answer.</span></>
         ) : (
-          <>More than<br />a <span style={{ color: COLORS.purple }}>scanner.</span></>
+          <>More than<br />an <span style={{ color: COLORS.purple }}>answer.</span></>
         )}
       </div>
     </AbsoluteFill>

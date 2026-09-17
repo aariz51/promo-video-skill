@@ -13,9 +13,9 @@ export const S8_Tagline: React.FC = () => {
   const opacity = tailFade(frame, dur.tagline, 14);
 
   const words = [
-    { t: "Scan.", c: COLORS.purple },
+    { t: "Ask.", c: COLORS.purple },
     { t: "Know.", c: COLORS.pink },
-    { t: "Protect.", c: COLORS.gold },
+    { t: "Move.", c: COLORS.gold },
   ];
   const beat = 16; // frames between beats
 

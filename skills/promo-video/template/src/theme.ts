@@ -4,33 +4,34 @@
 //    swap COLORS for the app's palette, point `screens`/`LOGO` at its assets,
 //    and (optionally) pick fonts in ./fonts.ts. Keep `T`/`dur` unchanged so the
 //    prebuilt audio stays in sync — or change them and rebuild audio to match.
-//  The shipped values are the worked example (a warm pregnancy-safety scanner).
+//  The shipped values are a deliberately neutral placeholder identity, so the
+//  template renders on a fresh clone with no assets of your own.
 // ════════════════════════════════════════════════════════════════════════════
 import { FONT_HEAD, FONT_BODY } from "./fonts";
 
 export { FONT_HEAD, FONT_BODY };
 
 export const COLORS = {
-  // Warm base (background system)
-  cream: "#FDF8F5",
-  creamDeep: "#FBEFE9",
-  blush: "#F7E0E6",
-  // Brand primary / secondary / accent
-  purple: "#7A1FA2",
-  purpleSoft: "#9A44C4",
-  purpleDeep: "#5E1580",
-  pink: "#E84B8A",
-  pinkSoft: "#F58FB6",
-  gold: "#F4B400",
-  goldSoft: "#FFD46B",
-  // Result semantics (good / warn / bad) — recolour for your domain
-  safe: "#2FB56A",
-  safeSoft: "#7ED9A6",
-  caution: "#FF8C00",
-  avoid: "#E5484D",
+  // Base (background system) — near-white with a cool tint.
+  cream: "#F7F8FC",
+  creamDeep: "#EEF0F8",
+  blush: "#E3E6F5",
+  // Brand primary / secondary / accent — replace with the app's sampled palette.
+  purple: "#4F46E5",
+  purpleSoft: "#7A75EE",
+  purpleDeep: "#3730A3",
+  pink: "#DB2777",
+  pinkSoft: "#F472B6",
+  gold: "#F59E0B",
+  goldSoft: "#FCD34D",
+  // Result semantics (good / warn / bad) — recolour for your domain.
+  safe: "#10B981",
+  safeSoft: "#6EE7B7",
+  caution: "#F97316",
+  avoid: "#EF4444",
   // Ink
-  ink: "#2B2D42",
-  inkSoft: "#6B6E86",
+  ink: "#1E2230",
+  inkSoft: "#7A8296",
   white: "#FFFFFF",
 } as const;
 
@@ -38,36 +39,35 @@ export const COLORS = {
 export const FPS = 60;
 export const WIDTH = 1080;
 export const HEIGHT = 1920;
-export const DURATION = 1980; // 33s
+export const DURATION = 1980; // 33s — keep in sync with DUR in scripts/build_audio.py
 
 // Native app-screen dimensions (portrait phone)
 export const SCREEN_W = 1080;
 export const SCREEN_H = 2340;
 export const SCREEN_RATIO = SCREEN_W / SCREEN_H; // ~0.4615
 
+// The seven screens the shipped scenes use: one hero (`dashboard`, the money
+// shot in S7) and six that ride the orbit ring in S6. Drop your PNGs into
+// public/app-screens/ and repoint these — the keys are what the scenes import,
+// so keep the key names and change only the file paths.
+// The shipped files are generated stand-ins (scripts/make_placeholders.py).
 export const screens = {
-  dashboard: "app-screens/01-safemama-dashboard.png",
-  health: "app-screens/02-pregnancy-health-score.png",
-  drawer: "app-screens/03-drawer-menu.png",
-  scanMode: "app-screens/04-scan-mode-selection.png",
-  barcode: "app-screens/05-barcode-scan-interface.png",
-  history: "app-screens/06-scan-history.png",
-  result: "app-screens/07-existing-scan-result.png",
-  document: "app-screens/08-document-analysis.png",
-  expert: "app-screens/09-ask-expert.png",
-  test: "app-screens/10-pregnancy-test.png",
-  community: "app-screens/11-community.png",
-  search: "app-screens/12-manual-search.png",
-  tools: "app-screens/13-free-tools.png",
-  calculator: "app-screens/14-pregnancy-tools-calculator.png",
-  guide: "app-screens/15-ai-personalized-guide.png",
+  dashboard: "app-screens/01-home.png",
+  detail: "app-screens/02-detail.png",
+  search: "app-screens/03-search.png",
+  library: "app-screens/04-library.png",
+  profile: "app-screens/05-profile.png",
+  settings: "app-screens/06-settings.png",
+  result: "app-screens/07-result.png",
 } as const;
 
 export const LOGO = "logo/app-logo.png";
 
 // The pre-mixed audio master (VO + SFX + pad), built by scripts/build_audio.py.
-// Set to null to preview the film silently before the master exists.
-export const AUDIO_SRC: string | null = "audio/master.wav";
+// Ships as null so a fresh clone renders silently instead of failing on a file
+// that does not exist yet. Set this to "audio/master.wav" AFTER you have run
+// `npm run audio`.
+export const AUDIO_SRC: string | null = null;
 
 // Scene boundaries in frames @ 60fps (start-inclusive).
 export const T = {
@@ -95,6 +95,6 @@ export const dur = {
   logo: T.end - T.logo,
 } as const;
 
-// Reusable soft radial cream→blush background used across scenes.
+// Reusable soft radial background used across scenes.
 // Centred a little high so the hero sits in a pool of light in a tall frame.
 export const BG_RADIAL = `radial-gradient(circle at 50% 38%, ${COLORS.white} 0%, ${COLORS.cream} 42%, ${COLORS.creamDeep} 100%)`;

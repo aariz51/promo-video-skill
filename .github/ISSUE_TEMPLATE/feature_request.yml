@@ -1,0 +1,20 @@
+name: Idea or improvement
+description: Suggest a scene, technique, or workflow change
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is the problem?
+      description: What are you trying to make that is hard or impossible today?
+    validations: {required: true}
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like instead?
+    validations: {required: true}
+  - type: input
+    id: reference
+    attributes:
+      label: A reference film that does this well (optional)
+      description: A URL and a timestamp is worth a lot here.
