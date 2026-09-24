@@ -50,8 +50,9 @@ to read. Accelerate into the proof beat; exhale on the logo.
 Every effect must *mean* something at that instant: **click** on a cursor tap, **pop** when
 something lands/appears, **whoosh** on a camera move/transition, **success chime** + **sparkle**
 on the reward/brand beat, **tick-train** while the AI "thinks"/data loads, **card-fan** on a
-device orbit. Boost clicks/typing so interactions read. Keep a soft *non-melodic* ambient pad,
-not music. Limit the master to ≈ −1 dB. See `template/scripts/build_audio.py`.
+device orbit. Boost clicks/typing so interactions read. **No music and no ambient bed** by
+default; narration, if any, is ducked above the effects. Limit the master to ≈ −1 dB. See
+`template/scripts/build_audio.py`.
 
 ## Orientation
 Author every scene orientation-aware: `const wide = width > height`. Portrait *stacks*

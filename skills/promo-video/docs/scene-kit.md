@@ -1,9 +1,10 @@
 # Scene kit — the parts, and how to recombine them
 
-The template is a **kit plus one worked example**. The nine scenes it ships are what
-one particular reference asked for. Your reference will ask for something else.
+The template is a **kit plus one worked example**. Its nine scenes are the skill's own
+creative system — what Mode A (no reference) produces. In Mode B, a reference will ask
+for a different structure.
 
-This file lists what you can reuse, so Step 4 of `SKILL.md` can assemble a structure
+This file lists what you can reuse, so Step 4B of `SKILL.md` can assemble a structure
 instead of inheriting one.
 
 ## Components (orientation-agnostic, size-driven)
@@ -22,6 +23,42 @@ instead of inheriting one.
 | `ActionButton` | Glassy brand orb with a reticle glyph | the primary call-to-action |
 | `FontLoader` | Injects the bundled `@font-face` CSS | always mount once, in `Film.tsx` |
 
+## Cube Motion — the UI and typography layer
+
+[Cube Motion](https://www.cube-motion.dev) (`cube-motion`, MIT) is four opinionated UI
+motions — `rise`, `leave`, `morph`, `reveal` — with fixed duration, curve and distance.
+Only stagger and delay are configurable. That constraint is the point: every label,
+chip, caption and badge in the film enters, leaves and changes state with one
+consistent, well-judged feel.
+
+**Why there is a bridge.** Cube Motion runs on the Web Animations API, in wall-clock
+time. Remotion renders each frame independently, out of order, across parallel browser
+tabs — a wall-clock animation would be captured at a random moment. But every Cube
+function *returns* its `Animation` objects, so `src/animations/cube.tsx` creates them
+once, pauses them, and seeks them to `(frame − at) / fps` on every frame. The library
+still owns the keyframes, curve, stagger and fill; Remotion owns the clock.
+
+| Component | Cube primitive | Use it for |
+|---|---|---|
+| `<CubeRise at>` | `rise` | one element entering |
+| `<CubeLeave at>` | `leave` | one element exiting (holds hidden) |
+| `<CubeInOut at outAt>` | `rise` + `leave` on nested nodes | an element that enters and later exits |
+| `<CubeList at outAt? stagger?>` | `rise` / `leave` on a list | chips, rows, badges entering in sequence |
+| `<CubeMorphText at from to>` | `morph` (per grapheme) | a label that changes state; text resolving from nothing (`from="\u200b"`) |
+| `<CubeMorphSequence labels at[]>` | chained `morph` | a pill cycling through several labels |
+
+Rules:
+
+1. **`at` is a frame inside the enclosing `<Sequence>`**, not an absolute frame.
+2. **Never import `cube-motion` directly into a scene.** Only the bridge is frame-accurate.
+3. **Cinematic motion stays on springs and `interpolate`.** Cube's lift is a fixed 12px,
+   right for UI and wrong for a phone flying across the frame.
+4. **`reveal` is not wrapped** — it waits for scrolling, and video has no scroll.
+   `<CubeRise at>` is its video equivalent.
+5. **Proving it:** render with `--props='{"cube":false}'` and every Cube motion is
+   switched off (elements render at rest). Diff against a normal render to see exactly
+   what the library contributes.
+
 ## Animation layer
 
 - `springs.ts` — `sEnter` (confident reveal), `sPop` (punchy), `sSettle` (heavy,
@@ -34,7 +71,7 @@ Nothing uses `Math.random()` or `Date`. Renders must be frame-deterministic.
 
 ## The nine shipped scenes — and what each is really *for*
 
-Read these as jobs, not as an order. Keep the ones your reference motivates.
+In Mode A these run in this order. In Mode B, read them as jobs, not as an order, and keep only the ones your reference motivates.
 
 | Scene | Job it performs |
 |---|---|
@@ -94,3 +131,12 @@ components; each is a short scene you write from the kit.
   drifting via `bob`/`sway`. Reads as volume and chaos.
 - **Light↔dark inversion** — `Bloom` blown to white, with the new ground developing out
   of it. Land it on an audio hit; it is a structural device, not a transition.
+- **Fly-through a letter** — a selected word scales exponentially toward one of its
+  counters (the hole in an "o"), which becomes the next scene's ground. Measure the
+  glyph's untransformed position with `offsetLeft`/`offsetTop`, scale about it, and
+  translate it to frame centre as the zoom builds; otherwise the counter drifts off-axis.
+  Fill the letters with an image via `background-clip: text` as they grow.
+- **Riding marker on a time axis** — a world several frames wide, panned by a camera;
+  draw each line only up to the camera's head position so a brand marker rides the tip.
+  Without real data, leave the value axis unlabelled.
+

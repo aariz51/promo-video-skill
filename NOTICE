@@ -20,6 +20,11 @@ Sound effects
     to. The audio builder reads whatever is in that directory, so swapping them
     requires no code changes.
 
+npm dependency
+--------------
+`cube-motion` (https://www.cube-motion.dev) — MIT. Used for the UI and typography
+motion layer through `src/animations/cube.tsx`.
+
 Runtime dependency
 ------------------
 Remotion (https://remotion.dev) has its own licence terms, which may require a

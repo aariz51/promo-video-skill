@@ -3,7 +3,8 @@ import { AbsoluteFill, Img, staticFile, useCurrentFrame, useVideoConfig, interpo
 import { COLORS, BG_RADIAL, FONT_HEAD, FONT_BODY, LOGO } from "../theme";
 import { Particles } from "../components/Particles";
 import { Bloom } from "../components/Bloom";
-import { sPop, sSettle } from "../animations/springs";
+import { CubeRise, CubeList } from "../animations/cube";
+import { sPop } from "../animations/springs";
 import { pulse } from "../animations/motion";
 
 // A resting-heartbeat pulse: a lub-dub every ~50 frames.
@@ -14,15 +15,11 @@ const heartbeat = (f: number) => {
   return lub * 0.9 + dub * 0.55;
 };
 
-const StoreBadge: React.FC<{ top: string; bottom: string; delay: number }> = ({ top, bottom, delay }) => {
-  const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-  const s = sPop({ frame, fps, delay });
+// Entrance is owned by the parent <CubeList>; the badge itself is static.
+const StoreBadge: React.FC<{ top: string; bottom: string }> = ({ top, bottom }) => {
   return (
     <div
       style={{
-        transform: `translateY(${interpolate(s, [0, 1], [40, 0])}px)`,
-        opacity: s,
         background: COLORS.ink,
         color: "#fff",
         borderRadius: 18,
@@ -51,7 +48,6 @@ export const S9_Logo: React.FC = () => {
   const logoScale = interpolate(mark, [0, 1], [0.4, 1]) * (1 + beat * 0.05);
   const glow = pulse(frame, 60);
 
-  const tag = sSettle({ frame, fps, delay: 26 });
   const LOGO_SIZE = wide ? 500 : 680;
 
   return (
@@ -97,25 +93,24 @@ export const S9_Logo: React.FC = () => {
       </div>
 
       {/* tagline */}
-      <div
+      <CubeRise
+        at={26}
         style={{
           fontFamily: FONT_BODY,
           fontWeight: 500,
           fontSize: 42,
           color: COLORS.inkSoft,
-          opacity: tag,
-          transform: `translateY(${interpolate(tag, [0, 1], [24, 0])}px)`,
           textAlign: "center",
         }}
       >
         Your one-line product tagline
-      </div>
+      </CubeRise>
 
       {/* store badges */}
-      <div style={{ display: "flex", gap: 28, marginTop: 46 }}>
-        <StoreBadge top="Download on the" bottom="App Store" delay={40} />
-        <StoreBadge top="GET IT ON" bottom="Google Play" delay={48} />
-      </div>
+      <CubeList at={40} stagger={130} style={{ display: "flex", gap: 28, marginTop: 46 }}>
+        <StoreBadge top="Download on the" bottom="App Store" />
+        <StoreBadge top="GET IT ON" bottom="Google Play" />
+      </CubeList>
 
       <Bloom frame={frame} peak={5} rise={6} fall={16} />
     </AbsoluteFill>

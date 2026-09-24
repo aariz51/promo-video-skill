@@ -1,12 +1,12 @@
 # promo-video-skill
 
-**Point your coding agent at a promo video you love. Get the same motion language, rebuilt around your app.**
+**Turn your app's screenshots into a launch film. Optionally, point it at a promo you love and it rebuilds that film's structure around your product.**
 
-An [Agent Skill](https://agentskills.io) that takes a **reference video** (a YouTube URL)
-and **your product's assets** (screenshots, logo, a description), reverse-engineers the
-reference's creative direction — scene structure, timing, transitions, camera moves,
-typography, sound design — and builds a **completely original** launch film for your
-product in [Remotion](https://remotion.dev).
+An [Agent Skill](https://agentskills.io) that takes **your product's assets** (screenshots,
+logo, a description, a feature list) and builds a **completely original** launch film in
+[Remotion](https://remotion.dev). Give it a **reference video** too, and it
+reverse-engineers that film's creative direction — scene structure, pacing, transitions,
+camera moves, typography — and rebuilds it around your product.
 
 ```
   reference video  ──▶  structural breakdown  ──▶  your assets  ──▶  original film
@@ -19,7 +19,10 @@ It is not a template you fill in, and it is not a screenshot slideshow. It is a
 creative-director workflow: the agent *watches* the reference, writes a real breakdown,
 studies your app, writes a storyboard, then builds and renders the project.
 
-**No API key.** If you already have Claude Code or Codex, you have everything you need.
+**Two modes, no settings.** Give it a reference and it follows the reference; don't,
+and it uses its own creative system. You never pick a mode, a library or a provider.
+
+**No API key.** Everything runs locally. Voiceover is optional.
 
 ---
 
@@ -56,15 +59,16 @@ transition vocabulary, composition rules) and re-authors it with your brand.
 
 ## How it works
 
-1. **Watch.** The [`watch` skill](https://github.com/bradautomates/claude-video) pulls
-   ~30–40 frames from your reference URL. The agent reads the frames itself.
-2. **Break it down.** Scene-by-scene: every transition, camera move, typography
-   technique, motion principle, beats-per-second, color and light, and *why each scene
-   works*.
+1. **Watch** *(reference mode)*. The [`watch` skill](https://github.com/bradautomates/claude-video)
+   downloads the reference; the agent combines scene-cut detection, uniform sampling
+   and frame-by-frame passes on key transitions, and reads the frames itself.
+2. **Break it down** *(reference mode)*. Acts and their proportions, cut count, beat
+   rate, every transition and camera move, and the **signature devices** that make that
+   film itself.
 3. **Study your app.** Every screenshot and the logo are read directly; brand colors are
    sampled from the real pixels; the money shot is identified.
-4. **Direct.** Mood, palette, motion language, type, pacing — the reference's grammar
-   translated into your product's world, written out as a storyboard.
+4. **Direct.** In reference mode, the reference's acts and devices become the
+   storyboard. In autonomous mode, the skill's own nine-scene film does.
 5. **Build.** The Remotion template is scaffolded and customized: colors, screens, copy,
    scenes, tagline, logo lockup, and a mapped sound-design timeline.
 6. **Verify and render.** Still frames are rendered at each beat and visually checked for
@@ -114,17 +118,29 @@ Same skill, same command, both hosts. You are never asked to pick a provider or 
 
 ## Usage
 
-The skill asks for what it needs, in order:
+`/promo-video` asks for what it needs, in order. The first answer decides the mode.
+
+**Autonomous — no reference.** The skill uses its built-in creative system.
+
+```
+1  Reference video   no
+2  Product name      Orbit
+3  Description       "A calendar that schedules around your focus blocks."
+4  Features          auto-scheduling, focus mode, team sync   (priority order)
+5  Assets folder     ./assets/   (screenshots + logo)
+```
+
+**Reference-driven.** The skill watches the reference and rebuilds its structure.
 
 ```
 1  Reference video   https://youtube.com/watch?v=...
 2  Product name      Orbit
 3  Description       "A calendar that schedules around your focus blocks."
-4  Features          auto-scheduling, focus mode, team sync   (priority order)
-5  Assets folder     ./assets/   (screenshots + logo)
-
-   Deliverables      9:16, 16:9, App Store preview
+4  Features          auto-scheduling, focus mode, team sync
+5  Assets folder     ./assets/
 ```
+
+Then it confirms deliverables (9:16, 16:9, App Store preview) and whether you want narration.
 
 You can also skip the questions and just say it:
 
@@ -143,8 +159,8 @@ step is the point.
   in `npm run dev` long after the agent is done.
 - **Rendered films** — 9:16 vertical (Reels/TikTok/Shorts/Stories), 16:9 landscape
   (YouTube/web), and App Store previews (886×1920 / 1920×886, ≤30s, 30fps).
-- **One audio master** (sound design mapped to on-screen action) that stays
-  frame-synced across every orientation. Built locally — no key, no network.
+- **One audio master** — sound effects mapped to on-screen events, optional narration
+  ducked above them, **no music**. Built locally with ffmpeg.
 
 ---
 
@@ -207,14 +223,15 @@ skills/promo-video/
     │   ├── theme.ts                    # ← brand + timing: the first file to edit
     │   ├── scenes/                     # 9 example scenes, all orientation-aware
     │   ├── components/                 # PhoneFrame, GlassCard, Cursor, ScoreRing …
-    │   └── animations/                 # springs, easings, motion helpers
+    │   └── animations/                 # springs, easings, motion + cube.tsx (Cube Motion bridge)
     ├── scripts/
-    │   ├── build_audio.py              # mapped SFX + pad → one master (no key)
+    │   ├── build_audio.py              # mapped SFX (+ optional voice) → one master
+    │   ├── voiceover.py                # optional narration, verified against the script
     │   └── make_placeholders.py        # regenerates the neutral placeholder assets
     └── public/{sfx,fonts,app-screens,logo}/
 ```
 
-Two design decisions worth knowing:
+Design decisions worth knowing:
 
 - **One film, four sizes.** Every scene is orientation-aware (`const wide = width > height`)
   so all four compositions share one codebase, one timeline, and one audio master.
@@ -222,6 +239,12 @@ Two design decisions worth knowing:
   agent derives *your* scene list from *your* reference — dropping scenes the reference
   does not motivate and writing new ones for its signature devices. Two different
   references produce two structurally different films.
+- **Two motion layers.** Cinematic motion — devices, cameras, fly-throughs — runs on
+  Remotion springs and interpolation. The UI layer — labels, chips, captions, text that
+  changes state — runs on [Cube Motion](https://www.cube-motion.dev) (`rise`, `leave`,
+  `morph`). Cube Motion is time-based, so `animations/cube.tsx` pauses its animations
+  and seeks them to the Remotion frame: the library keeps its curves and staggers,
+  Remotion keeps the clock, and renders stay deterministic.
 - **Timing lives in one place.** `theme.ts` exports `T`/`dur` (scene boundaries in frames)
   and `build_audio.py` mixes against the same cues, so picture and sound stay
   frame-locked across every orientation.
@@ -232,12 +255,12 @@ Two design decisions worth knowing:
 
 | | |
 |---|---|
-| **Agent host** | Claude Code or Codex (both tested), or any other [Agent Skills](https://agentskills.io) host — Cursor, Copilot, VS Code, Gemini CLI, OpenCode, Goose. |
-| **`watch` skill** | [`bradautomates/claude-video`](https://github.com/bradautomates/claude-video) — required, this is how the reference gets seen. |
+| **Agent host** | Claude Code (tested end to end). Codex is supported by the same skill folder at `~/.codex/skills/`, but has not yet been run end to end. Other [Agent Skills](https://agentskills.io) hosts should work. |
+| **`watch` skill** | [`bradautomates/claude-video`](https://github.com/bradautomates/claude-video) — only for reference mode. |
 | **Node** | ≥ 18 (Remotion) |
 | **Python** | 3.x (audio builder) |
 | **Binaries** | `ffmpeg`, `ffprobe` on PATH |
-| **API keys** | **None.** Nothing to sign up for, nothing to configure. |
+| **API keys** | **None.** Narration is optional: macOS `say` needs no key; an `OPENROUTER_API_KEY` you already have also works. |
 
 ---
 
@@ -245,7 +268,7 @@ Two design decisions worth knowing:
 
 - [ ] A `skills-ref`-based CI check so the skill stays spec-valid
 - [ ] More worked reference breakdowns in `docs/` (different pacing families)
-- [ ] Optional background-music bed alongside the SFX master
+- [ ] An end-to-end run on Codex, recorded in the docs
 - [ ] Landscape-first storyboard variant (currently portrait-first, adapted)
 - [ ] Example gallery: reference → generated result, side by side
 
@@ -257,6 +280,7 @@ additions**, which are the parts that compound. See [CONTRIBUTING.md](CONTRIBUTI
 ## Credits & licenses
 
 - Built on [Remotion](https://remotion.dev) — check Remotion's own license for commercial use.
+- UI and typography motion via [Cube Motion](https://www.cube-motion.dev) (`cube-motion`, MIT).
 - Video analysis via [`claude-video` / `watch`](https://github.com/bradautomates/claude-video) (MIT).
 - Bundled fonts: Inter & Baloo 2 (SIL Open Font License).
 - Bundled SFX are placeholders — **verify their licensing before commercial use**, or replace them.

@@ -6,6 +6,7 @@ import { Confetti } from "../components/Confetti";
 import { Particles } from "../components/Particles";
 import { sEnter, sBounce } from "../animations/springs";
 import { tailFade } from "../animations/motion";
+import { CubeMorphText } from "../animations/cube";
 
 const RING_START = 14;
 const RING_SPAN = 52;
@@ -49,9 +50,13 @@ export const S4_Verdict: React.FC = () => {
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
             <path d="M5 13l4 4L19 7" stroke={COLORS.safe} strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          <span style={{ fontFamily: FONT_BODY, fontWeight: 700, fontSize: 30, color: COLORS.safe, letterSpacing: 2 }}>
-            ANSWER READY
-          </span>
+          {/* cube-motion `morph`: the status label changes state as the ring lands */}
+          <CubeMorphText
+            at={REWARD - 6}
+            from="ANALYSING…"
+            to="ANSWER READY"
+            style={{ fontFamily: FONT_BODY, fontWeight: 700, fontSize: 30, color: COLORS.safe, letterSpacing: 2 }}
+          />
         </div>
 
         {/* product name */}

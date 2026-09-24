@@ -51,12 +51,21 @@ them to suit your film (see [`../docs/scene-kit.md`](../docs/scene-kit.md)). Kee
 spring-everything, float-idle, single-hero composition, light-bloom and whoosh stitches,
 a cursor that presses real UI, a reward beat, a period-rhythm tagline.
 
-**5. Audio.** Rewrite the `FX` timeline in `scripts/build_audio.py` so every sound maps
-to something on screen, then:
+**5. Audio.** Write `sound.json` — one cue per on-screen event — then:
 
 ```bash
-npm run audio      # no API key, no network — ffmpeg only
+npm run audio      # no API key, no network — ffmpeg only; no music, no bed
 ```
+
+```json
+{ "duration": 33, "cues": [ { "fx": "click", "at": 6.37, "vol": 1.0 } ] }
+```
+
+Effects: `click`, `pop`, `pop2`, `whoosh`, `chime`, `type`, `drag`, `sparkle`. Without
+`sound.json` the built-in timeline for the nine shipped scenes is used.
+
+**Narration (optional).** Write `voiceover.json` and run `python3 scripts/voiceover.py`
+before `npm run audio`; see [`../docs/voiceover.md`](../docs/voiceover.md).
 
 Then set `AUDIO_SRC = "audio/master.wav"` in `theme.ts`. It ships as `null` so a fresh
 clone renders silently instead of failing on a master that does not exist yet.
@@ -68,8 +77,10 @@ clone renders silently instead of failing on a master that does not exist yet.
   while the timeline stays identical — which is what lets one audio master sync to all four.
 - **`animations/`** is the shared motion vocabulary: `springs.ts` (enter / pop / settle /
   bounce), `easings.ts` (one set of bezier curves), `motion.ts` (bob, sway, pulse, ramp,
-  push-in, deterministic seed). Nothing uses `Math.random()` or `Date` — renders must be
-  deterministic across frames.
+  push-in, deterministic seed), and `cube.tsx` — the [Cube Motion](https://www.cube-motion.dev)
+  bridge for the UI layer (`CubeRise`, `CubeList`, `CubeMorphText`…), which seeks the
+  library's time-based animations to the Remotion frame. Nothing uses `Math.random()`
+  or `Date` — renders must be deterministic across frames.
 - **`components/`** are the reusable props: `PhoneFrame`, `GlassCard`, `Cursor`,
   `KineticWords`, `ScoreRing`, `ActionButton`, `Bloom`, `Whoosh`, `Confetti`, `Particles`,
   `FontLoader`.

@@ -1,68 +1,72 @@
-# Voiceover (optional, not part of the core workflow)
+# Voiceover (optional)
 
-**The skill does not generate narration, and does not need an API key.** Audio is
-built locally: `scripts/build_audio.py` mixes the bundled sound effects over a soft
-ambient pad using nothing but ffmpeg.
+**Narration is optional and never required.** Without it, `scripts/build_audio.py`
+builds a complete sound-design master — mapped effects, no music — with nothing but
+ffmpeg. Many of the best product films have no narration at all.
 
-This is a deliberate design decision, not a missing feature.
+If you want a voice, the template ships `scripts/voiceover.py`.
 
-## Why there is no built-in voiceover
+## 1. Write the script
 
-1. **No credential should stand between a user and their first render.** If you have
-   Claude Code or Codex, you have everything this skill needs. Adding a TTS provider
-   would mean an account, a key, and a billing relationship for one optional track.
-2. **Many of the best product films have no voiceover at all.** Plenty of premium SaaS
-   launch videos are music and motion only — the type carries the message. If your
-   reference has no narration, matching it means not adding any.
-3. **Narration is the least portable part of a film.** It locks the edit to one
-   language and one read. Sound design does not.
+`voiceover.json` in the project root — **one short line per scene**, each starting at that
+scene's cue (`T` in `src/theme.ts`, converted to seconds):
 
-## If you do want narration
-
-The film is a normal Remotion project, so you have the usual options. In rough order
-of effort:
-
-**1. Record it yourself.** Thirty seconds of script is a two-minute job on a phone.
-Save it as `public/audio/vo.wav`.
-
-**2. Use a TTS tool you already have.** macOS ships `say`:
-
-```bash
-say -v Samantha -o public/audio/vo.aiff "Your line here."
-ffmpeg -y -i public/audio/vo.aiff -ar 48000 -ac 2 public/audio/vo.wav
+```json
+{
+  "voice": "marin",
+  "direction": "Bright, warm, confident voice for a premium app advert. Clear, natural pace. Never salesy.",
+  "lines": [
+    { "at": 0.35, "text": "Every label becomes a question." },
+    { "at": 3.10, "text": "With YourApp, one scan is enough." }
+  ]
+}
 ```
 
-Linux equivalents include `espeak-ng` and `piper`. These are local and keyless, but
-platform-specific — which is exactly why the skill does not depend on one.
+Writing rules that come from real takes:
 
-**3. Use a hosted TTS provider** if you already have an account somewhere.
+- **Keep lines inside their scene.** The tool fits each line to the gap before the next,
+  trimming silence and allowing at most a 1.2× tempo change. Past that it flags the line;
+  rewrite it rather than pushing the tempo.
+- **Don't open a line with a made-up brand name after a full stop.** "BrandName.
+  Download free" can come back mangled; "Download BrandName free" reads cleanly. Put
+  the name mid-sentence.
+- **Lists read slowly.** "Barcode, label, ingredients." took longer than a seven-word
+  sentence. For a two-second beat, say one thing.
 
-## Mixing a voice track in
-
-Once you have `public/audio/vo.wav`, mix it against the SFX master. Time each line to
-its scene cue from `T` in `theme.ts`:
+## 2. Render the lines
 
 ```bash
-ffmpeg -y -i public/audio/master.wav -i public/audio/vo.wav \
-  -filter_complex "[1:a]adelay=300|300,volume=1.25[v];\
-                   [0:a]volume=0.55[bed];\
-                   [bed][v]amix=inputs=2:normalize=0,alimiter=limit=0.89[out]" \
-  -map "[out]" -ar 48000 -ac 2 public/audio/master-vo.wav
+python3 scripts/voiceover.py --engine say          # macOS, keyless, offline
+python3 scripts/voiceover.py --engine openrouter   # uses OPENROUTER_API_KEY if you have one
 ```
 
-Then point `AUDIO_SRC` at `"audio/master-vo.wav"`.
+- `say` uses a macOS voice name (e.g. `Samantha`). No key, no network.
+- `openrouter` uses `openai/gpt-audio`. It reads the key **only** from the
+  `OPENROUTER_API_KEY` environment variable, passes it to curl on stdin (never on the
+  command line), and never writes it to disk. Female-presenting voices include `marin`,
+  `coral` and `shimmer`.
 
-Two things worth getting right:
+**Every take is verified.** Chat-style TTS models sometimes *answer* a line instead of
+reading it — "Scan any label." once came back as "I'm sorry, I can't assist with that
+request." The tool frames each line as a script, compares the model's own transcript
+with the script, and retries up to four times before telling you to rephrase.
 
-- **Duck the bed under speech.** The `volume=0.55` on the SFX bus above is a static
-  duck; a `sidechaincompress` filter does it dynamically if you want to be precise.
-- **Fit each line to its window** rather than letting it run over the next scene. A
-  pitch-preserving `atempo` between 1.0 and about 1.25 is safe; past that it starts
-  to sound rushed.
+Takes are cached in `scripts/.vo_cache/` (git-ignored), so re-runs are free and
+deterministic. Output: `public/audio/vo/NN.wav` and `public/audio/vo/manifest.json`.
 
-## One line per scene
+## 3. Mix
 
-Whatever route you take, the writing rule is the same: **one short line per scene**,
-timed to that scene's cue. Narration that spans a cut fights the edit. If a line will
-not fit its beat, the beat is too short or the line is too long — fix the script, not
-the tempo.
+```bash
+python3 scripts/build_audio.py
+```
+
+It finds the manifest, places each line at its cue, and side-chain ducks the effects
+underneath the voice so speech always reads. No music is added.
+
+## Recording it yourself
+
+Any WAV works. Put it in `public/audio/vo/`, then list it in `manifest.json`:
+
+```json
+{ "lines": [ { "file": "00.wav", "at": 0.35 } ] }
+```

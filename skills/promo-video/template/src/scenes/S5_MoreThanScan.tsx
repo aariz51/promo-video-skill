@@ -6,6 +6,7 @@ import { Whoosh } from "../components/Whoosh";
 import { GlassCard } from "../components/GlassCard";
 import { sEnter } from "../animations/springs";
 import { bob, tailFade } from "../animations/motion";
+import { CubeList } from "../animations/cube";
 
 type Feat = { label: string; sub: string; tint: string; icon: React.ReactNode; dir: number };
 
@@ -92,8 +93,10 @@ export const S5_MoreThanScan: React.FC = () => {
                   <GlassCard width={320} height={380} tint={f.tint} glow={`${f.tint}55`}>
                     <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 26 }}>
                       {f.icon}
-                      <div style={{ fontFamily: FONT_HEAD, fontWeight: 800, fontSize: 40, color: "#fff" }}>{f.label}</div>
-                      <div style={{ fontFamily: FONT_BODY, fontWeight: 500, fontSize: 26, color: "rgba(255,255,255,0.9)" }}>{f.sub}</div>
+                      <CubeList at={40 + i * 9} itemStyle={{ textAlign: "center" }}>
+                        <div style={{ fontFamily: FONT_HEAD, fontWeight: 800, fontSize: 40, color: "#fff" }}>{f.label}</div>
+                        <div style={{ fontFamily: FONT_BODY, fontWeight: 500, fontSize: 26, color: "rgba(255,255,255,0.9)", marginTop: 8 }}>{f.sub}</div>
+                      </CubeList>
                     </div>
                   </GlassCard>
                 </div>
@@ -129,10 +132,10 @@ export const S5_MoreThanScan: React.FC = () => {
                       >
                         {f.icon}
                       </div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      <CubeList at={40 + i * 9} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                         <div style={{ fontFamily: FONT_HEAD, fontWeight: 800, fontSize: 52, color: "#fff", lineHeight: 1 }}>{f.label}</div>
                         <div style={{ fontFamily: FONT_BODY, fontWeight: 500, fontSize: 30, color: "rgba(255,255,255,0.9)" }}>{f.sub}</div>
-                      </div>
+                      </CubeList>
                     </div>
                   </GlassCard>
                 </div>
