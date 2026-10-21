@@ -106,6 +106,10 @@ class Workspace:
     @property
     def inspiration(self) -> Path: return self.root / "inspiration-analysis.md"
     @property
+    def reference_dir(self) -> Path: return self.root / "reference"
+    @property
+    def direction(self) -> Path: return self.root / "CREATIVE_DIRECTION.md"
+    @property
     def creative(self) -> Path: return self.root / "creative-prompt.md"
     @property
     def timeline(self) -> Path: return self.root / "timeline.json"
@@ -267,6 +271,8 @@ def init_workspace(ws: Workspace, *, product_root: Path, name: str | None = None
     gi = ws.root / ".gitignore"
     if not gi.exists():
         gi.write_text("# regenerable pipeline output\nbuild/\nout/\nqa/frames/\nqa/stills/\ninspiration/watch/\n"
+                     "# measured evidence of a third-party video: regenerate with `promo watch`\nreference/frames/\n"
+                     "reference/sheets/\n"
                      "# third-party transcript and local paths: regenerate with `promo watch`\n"
                      "inspiration/evidence.json\ninspiration/watch-report.md\n")
     return ws.config_path

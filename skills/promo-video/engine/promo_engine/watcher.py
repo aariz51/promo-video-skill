@@ -14,13 +14,15 @@ from __future__ import annotations
 import glob
 import os
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 from . import reference_input
 from .config import Workspace
-from .util import PromoError, fmt_time, parse_time, run, write_json
+from .reference_input import VIDEO_EXT
+from .util import PromoError, fmt_time, parse_time, read_json, run, write_json
 from .youtube import parse_youtube_url
 
 WATCH_INSTALL_HINT = (
@@ -140,70 +142,123 @@ def _fallback_download(url: str, dest: Path) -> Path | None:
     return out if res.returncode == 0 and out.exists() and out.stat().st_size > 0 else None
 
 
-def watch(ws: Workspace, source: str, *, detail: str = "balanced", script: Path | None = None) -> dict:
-    """Watch the inspiration video and write inspiration/evidence.json + pacing.json."""
+def _download(url: str, dest: Path) -> Path:
+    """yt-dlp straight to a file: the fallback when the watch skill is not installed."""
+    if shutil.which("yt-dlp") is None:
+        raise PromoError("the watch skill is not installed and yt-dlp is missing, so the reference cannot be fetched",
+                         hint=WATCH_INSTALL_HINT + " Or download the video yourself and pass its local path. "
+                              "No analysis is invented.")
+    dest.mkdir(parents=True, exist_ok=True)
+    res = subprocess.run(["yt-dlp", "--no-playlist", "-f", "bv*[height<=720]+ba/b[height<=720]/b",
+                          "--merge-output-format", "mp4", "-o", str(dest / "video.%(ext)s"), "--", url],
+                         capture_output=True, text=True)
+    got = sorted(dest.glob("video.*"))
+    if res.returncode != 0 or not got:
+        tail = "\n  ".join((res.stderr or res.stdout).strip().splitlines()[-4:])
+        raise PromoError(f"could not download the reference ({url}).\n  {tail}",
+                         hint="check the URL is public and points at one video, or supply a local file. "
+                              "No analysis is invented.")
+    return got[0]
+
+
+def _video_in(paths) -> Path | None:
+    return next((p for p in paths if p.is_file() and p.suffix.lower() in VIDEO_EXT), None)
+
+
+def watch(ws: Workspace, source: str, *, detail: str = "balanced", script: Path | None = None,
+          refresh: bool = False) -> dict:
+    """Watch the reference and measure it: inspiration/evidence.json, pacing.json and
+    reference/breakdown.json (+ frames and contact sheets).
+
+    The watch skill supplies frames and the transcript. If it is not installed, a local file
+    is measured directly and a URL is fetched with yt-dlp (no transcript then, and the
+    evidence says so). A previous download of the same source is reused unless `refresh`.
+    """
     ref = reference_input.resolve(source, base=Path.cwd())
     if ref.kind == "none":
         raise PromoError("there is no reference video to watch (the run is in autonomous mode)")
     src = ref.source
     video_id = parse_youtube_url(src).id if ref.kind == "youtube" else None
-    script = script or find_watch_skill() / "scripts" / "watch.py"
     work = ws.inspiration_dir / "watch"
-    work.mkdir(parents=True, exist_ok=True)
 
-    code, out, err = _run_watch(script, src, work, detail)
-    used = src
-    if (code != 0 or "## Frames" not in out) and video_id:
-        fb = _fallback_download(src, work / "fallback")
-        if fb:
-            code, out, err = _run_watch(script, str(fb), work, detail)
-            used = str(fb)
-    if code != 0 or "## Frames" not in out:
-        tail = "\n  ".join((err or out).strip().splitlines()[-6:])
-        raise PromoError(
-            f"could not analyse the inspiration video ({src}).\n  {tail}",
-            hint="check the URL is public, not age/region-locked, and points at one video (or supply a local "
-                 "file), or continue without a reference (autonomous mode). No analysis is invented.",
-        )
-    (ws.inspiration_dir / "watch-report.md").write_text(out)
-    ev = parse_report(out)
-    if not ev["frames"]:
-        raise PromoError("the watch skill returned no frames, so the video cannot be analysed visually",
-                         hint="re-run with a different URL or check `yt-dlp` can download it")
+    old = read_json(ws.evidence) if ws.evidence.exists() and not refresh else None
+    if old and old.get("canonical") == src and old.get("videoFile") and (ws.root / old["videoFile"]).is_file():
+        video_file, ev, used_watch, note = ws.root / old["videoFile"], old, old.get("watch", {}).get("used"), "reused"
+    else:
+        if script is None:
+            try:
+                script = find_watch_skill() / "scripts" / "watch.py"
+            except PromoError:
+                script = None
+        work.mkdir(parents=True, exist_ok=True)
+        if script is not None:
+            code, out, err = _run_watch(script, src, work, detail)
+            used = src
+            if (code != 0 or "## Frames" not in out) and video_id:
+                fb = _fallback_download(src, work / "fallback")
+                if fb:
+                    code, out, err = _run_watch(script, str(fb), work, detail)
+                    used = str(fb)
+            if code != 0 or "## Frames" not in out:
+                tail = "\n  ".join((err or out).strip().splitlines()[-6:])
+                raise PromoError(
+                    f"could not analyse the reference video ({src}).\n  {tail}",
+                    hint="check the URL is public, not age/region-locked, and points at one video (or supply a local "
+                         "file), or continue without a reference (autonomous mode). No analysis is invented.",
+                )
+            (ws.inspiration_dir / "watch-report.md").write_text(out)
+            ev = parse_report(out)
+            if not ev["frames"]:
+                raise PromoError("the watch skill returned no frames, so the video cannot be analysed visually",
+                                 hint="re-run with a different URL or check `yt-dlp` can download it")
+            video_file = _video_in([Path(used)] + sorted((work / "download").glob("video.*")))
+            used_watch, note = True, "watch skill"
+        else:
+            video_file = Path(src) if ref.kind == "file" else _download(src, work / "download")
+            ev = {"title": None, "duration": 0.0, "resolution": None, "frames": [],
+                  "transcript": {"available": False, "source": "not available: the watch skill is not installed",
+                                 "lines": []}}
+            used_watch, note = False, "watch skill not installed; measured by promo's own analyzer"
+        if video_file is None:
+            raise PromoError("the reference was watched but no video file was kept, so it cannot be measured",
+                             hint="re-run `promo watch --refresh`, or pass a local file")
 
-    video_file = next((p for p in [Path(used)] + sorted((work / "download").glob("video.*"))
-                       if p.is_file() and p.suffix.lower() in (".mp4", ".mkv", ".webm", ".mov")), None)
-    pacing = None
-    if video_file:
-        # Measure the file itself: the report's duration can describe a different stream.
-        duration = float(run(["ffprobe", "-v", "error", "-show_entries", "format=duration",
-                              "-of", "default=nw=1:nk=1", str(video_file)]).stdout.strip())
-        pacing = pacing_from_cuts(detect_cuts(video_file), duration)
-        write_json(ws.inspiration_dir / "pacing.json", pacing)
+    # Measure the file itself: the report's duration can describe a different stream.
+    from . import reference  # local import: reference imports nothing from here
+    bd = reference.analyze(video_file, ws.reference_dir, transcript=ev.get("transcript"), source=src)
+    duration = bd["metadata"]["duration"]
+    pacing = pacing_from_cuts(detect_cuts(video_file), duration)
+    write_json(ws.inspiration_dir / "pacing.json", pacing)
 
-    for fr in ev["frames"]:
+    for fr in ev.get("frames", []):
         p = Path(fr["path"])
         if p.is_absolute() and p.is_relative_to(ws.root):
             fr["path"] = p.relative_to(ws.root).as_posix()
+    rel = (lambda p: p.relative_to(ws.root).as_posix() if p.is_relative_to(ws.root) else str(p))
     evidence = {
         "source": source,
         "canonical": src,
+        "kind": ref.kind,
         "videoId": video_id,
-        "title": ev["title"],
-        "duration": ev["duration"],
-        "resolution": ev["resolution"],
-        "frames": ev["frames"],
-        "transcript": ev["transcript"],
+        "videoFile": rel(Path(video_file).resolve()),
+        "watch": {"used": bool(used_watch), "note": note},
+        "title": ev.get("title"),
+        "duration": duration,
+        "resolution": f"{bd['metadata']['width']}x{bd['metadata']['height']}",
+        "frames": ev.get("frames", []),
+        "transcript": ev.get("transcript"),
         "pacing": pacing,
-        "report": "inspiration/watch-report.md",
+        "breakdown": "reference/breakdown.json",
+        "report": "inspiration/watch-report.md" if used_watch else None,
     }
     write_json(ws.evidence, evidence)
+    evidence["reference"] = bd
     return evidence
 
 
 def evidence_summary(ev: dict) -> str:
-    p = ev.get("pacing") or {}
-    t = ev["transcript"]
-    return (f"{ev.get('title') or ev['source']} · {fmt_time(ev['duration'])} · {len(ev['frames'])} frames · "
-            f"{p.get('cutCount', '?')} cuts (avg shot {p.get('averageShot', '?')} s) · "
+    from . import reference
+    t = ev["transcript"] or {"available": False, "lines": []}
+    head = (f"{ev.get('title') or ev['source']} · watch: {ev['watch']['note']} · {len(ev['frames'])} watch frames · "
             f"transcript: {'yes, ' + str(len(t['lines'])) + ' lines' if t['available'] else 'none'}")
+    return head + ("\nMeasured: " + reference.summary(ev["reference"]) if ev.get("reference") else "")

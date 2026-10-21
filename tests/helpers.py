@@ -305,3 +305,85 @@ _Work dir: `{dir}` — delete when done._
 
 
 os.environ.setdefault("PROMO_TEST", "1")
+
+
+# ── synthetic reference videos with known structure ───────────────────────────────
+# Each profile lists (scene source, seconds) and the transitions between scenes, and
+# returns the ground truth the analyzer must recover. 25 fps, 320×180.
+REF_FPS, REF_SIZE = 25, "320x180"
+SCENE_SRC = {
+    "red": "color=c=0xC0392B", "blue": "color=c=0x1F3A93", "yellow": "color=c=0xF4D03F",
+    "navy": "color=c=0x0B1B3F", "orange": "color=c=0xE67E22", "green": "color=c=0x1E8449",
+    "grey": "color=c=0xB0B0B0", "motion": "testsrc2",
+}
+
+
+def _scene(src: str, secs: float, out: Path) -> Path:
+    if src == "pan":  # a pure camera pan (120 px/s, content moves left) across a still frame
+        still = out.with_suffix(".png")
+        ffmpeg("-f", "lavfi", "-i", "testsrc=s=640x360:d=1", "-frames:v", "1", str(still))
+        vf = f"crop=320:180:x='min(t*120,320)':y=90"
+        ffmpeg("-loop", "1", "-i", str(still), "-t", str(secs), "-r", str(REF_FPS), "-vf", vf, "-pix_fmt", "yuv420p", str(out))
+    else:
+        base = SCENE_SRC[src]
+        sep = ":" if "=" in base else "="
+        ffmpeg("-f", "lavfi", "-i", f"{base}{sep}s={REF_SIZE}:r={REF_FPS}:d={secs}", "-pix_fmt", "yuv420p", str(out))
+    return out
+
+
+REFERENCE_PROFILES = {
+    # Fast and punchy: five short scenes on hard cuts, one internal-motion scene, one
+    # camera pan, a fade to black at the end.
+    "rapid": {"scenes": [("red", 1.2), ("motion", 1.6), ("blue", 1.0), ("pan", 1.6), ("yellow", 1.4)],
+              "transitions": ["cut", "cut", "cut", "cut"], "fade_out": 0.6},
+    # Slow and soft: fade in, long holds, a dissolve, a wipe and a dip to black.
+    "slow": {"scenes": [("navy", 3.0), ("orange", 3.0), ("green", 3.0), ("grey", 3.0)],
+             "transitions": [("fade", 0.6), ("wipeleft", 0.6), ("fadeblack", 0.8)], "fade_in": 0.5},
+}
+
+
+def make_reference(dest: Path, profile: str) -> dict:
+    """Render the profile to `dest` and return its ground truth (boundary times, types)."""
+    spec = REFERENCE_PROFILES[profile]
+    work = dest.parent / f"_{profile}_parts"
+    work.mkdir(parents=True, exist_ok=True)
+    parts = [_scene(src, secs, work / f"s{i}.mp4") for i, (src, secs) in enumerate(spec["scenes"])]
+    truth = {"boundaries": [], "types": []}
+    if all(t == "cut" for t in spec["transitions"]):
+        lst = work / "list.txt"
+        lst.write_text("".join(f"file '{p}'\n" for p in parts))
+        joined = work / "joined.mp4"
+        ffmpeg("-f", "concat", "-safe", "0", "-i", str(lst), "-c", "copy", str(joined))
+        t = 0.0
+        for (_, secs) in spec["scenes"][:-1]:
+            t += secs
+            truth["boundaries"].append((round(t, 3), round(t, 3)))
+            truth["types"].append("cut")
+        total = sum(s for _, s in spec["scenes"])
+    else:
+        inputs, chain, prev, t = [], [], "0:v", spec["scenes"][0][1]
+        for p in parts:
+            inputs += ["-i", str(p)]
+        for k, (kind, d) in enumerate(spec["transitions"]):
+            off = round(t - d, 3)
+            label = f"x{k}"
+            chain.append(f"[{prev}][{k + 1}:v]xfade=transition={kind}:duration={d}:offset={off}[{label}]")
+            truth["boundaries"].append((off, round(off + d, 3)))
+            truth["types"].append({"fade": "dissolve", "wipeleft": "wipe-left", "fadeblack": "dip-black"}[kind])
+            prev = label
+            t = off + spec["scenes"][k + 1][1]
+        joined = work / "joined.mp4"
+        ffmpeg(*inputs, "-filter_complex", ";".join(chain), "-map", f"[{prev}]", "-pix_fmt", "yuv420p", str(joined))
+        total = t
+    vf = []
+    if spec.get("fade_in"):
+        vf.append(f"fade=t=in:st=0:d={spec['fade_in']}")
+    if spec.get("fade_out"):
+        vf.append(f"fade=t=out:st={total - spec['fade_out']}:d={spec['fade_out']}")
+    ffmpeg("-i", str(joined), "-f", "lavfi", "-i", f"sine=f=330:d={total}",
+           *(["-vf", ",".join(vf)] if vf else []), "-map", "0:v", "-map", "1:a", "-pix_fmt", "yuv420p",
+           "-c:v", "libx264", "-preset", "ultrafast", "-r", str(REF_FPS), "-c:a", "aac", "-shortest", str(dest))
+    shutil.rmtree(work, ignore_errors=True)
+    truth["duration"] = round(total, 3)
+    truth["scenes"] = len(spec["scenes"])
+    return truth

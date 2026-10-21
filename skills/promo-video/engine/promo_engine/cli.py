@@ -138,9 +138,11 @@ def cmd_watch(args) -> int:
     source = args.url or reference_source(ws.config())
     if not source:
         raise PromoError("no reference video is configured", hint="`promo init --reference <url|path>` first")
-    ev = watcher.watch(ws, source, detail=args.detail)
+    ev = watcher.watch(ws, source, detail=args.detail, refresh=args.refresh)
     print(watcher.evidence_summary(ev))
-    print(f"\nEvidence: {ws.evidence}\nRead every frame listed there before writing {ws.inspiration.name}.")
+    print(f"\nBreakdown: {ws.reference_dir / 'breakdown.json'} · contact sheets: {ws.reference_dir / 'sheets'}")
+    print("Next: `promo direction` scaffolds CREATIVE_DIRECTION.md from the measurements. "
+          "Read every contact sheet and evidence frame before filling it in.")
     return 0
 
 
@@ -325,6 +327,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("watch", help="analyse the reference video with the watch skill")
     p.add_argument("url", nargs="?", help="default: the configured reference")
     p.add_argument("--detail", default="balanced", choices=["efficient", "balanced", "token-burner"])
+    p.add_argument("--refresh", action="store_true", help="download and measure again instead of reusing")
     p = sub.add_parser("check", help="validate an artifact")
     p.add_argument("what", choices=["inspiration", "brief", "creative", "timeline", "all"])
     p = sub.add_parser("adapt", help="scaffold creative-prompt.md from the source + brief")
