@@ -35,12 +35,14 @@ def tearDownModule():
 
 def reference_env(profile: str) -> Env:
     """A workspace in Mode B with the profile's reference measured."""
+    from promo_engine import analyzer
     env = Env()
     video = reference_video(profile)
     assert main(["-w", str(env.ws.root), "init", "--product", str(env.product), "--reference", str(video),
                  "--audio", "effects", "--formats", "16:9"]) == 0
     reference.analyze(video, env.ws.reference_dir, source=str(video))
     env.ws.brief.write_text(helpers.BRIEF)
+    write_json(env.ws.scan, analyzer.scan(env.product, exclude=env.ws.root))
     return env
 
 
@@ -154,6 +156,8 @@ class ReferenceStoryboard(unittest.TestCase):
         starts = [round(sum(s["duration"] for s in tl["scenes"][:k]), 2) for k in range(1, len(tl["scenes"]))]
         self.assertEqual(starts, [t["start"] for t in bd["transitions"]])
         self.assertEqual(tl["source"], "reference")
+        # The product's colour, measured from its code, not the reference's palette.
+        self.assertEqual(tl["style"]["accent"], "#1F8A70")
 
     def test_two_references_give_materially_different_films(self):
         rapid, slow = self._skeleton("rapid"), self._skeleton("slow")

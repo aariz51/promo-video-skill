@@ -137,6 +137,14 @@ class ProductAnalysis(unittest.TestCase):
         self.assertEqual({e["name"] for e in data["envVariables"]}, {"DATABASE_URL", "EXPORT_BUCKET"})
         self.assertEqual(data["tests"]["count"], 1)
 
+    def test_brand_accent_comes_from_evidence(self):
+        scan = analyzer.scan(self.env.product, exclude=self.env.ws.root)
+        acc = analyzer.brand_accent(scan)
+        self.assertEqual((acc["value"], acc["source"]), ("#1F8A70", "styles/globals.css"))
+        self.assertIn("--brand", acc["why"])
+        greys = {"brand": {"cssVariables": [], "colors": [{"value": "#111418", "source": "a"}, {"value": "#F7F5F0", "source": "b"}]}}
+        self.assertIsNone(analyzer.brand_accent(greys), "no colour is invented when the code has only neutrals")
+
     def test_scan_never_reads_secrets(self):
         data = analyzer.scan(self.env.product)
         blob = json.dumps(data)

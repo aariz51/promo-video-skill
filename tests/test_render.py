@@ -304,15 +304,23 @@ class StoreFormats(unittest.TestCase):
         try:
             ws = product(tmp, audio="silent", formats=("store-portrait", "store-landscape", "9:16"), runtime="5-10")
             short = json.loads(json.dumps(films.COMPACT))
-            short["scenes"] = [short["scenes"][1], short["scenes"][4]]
+            short["scenes"] = [short["scenes"][2], short["scenes"][4]]  # the device scene + lockup
             short["scenes"][0].pop("transition")
             ws.timeline.write_text(json.dumps(short, indent=2))
             self.assertEqual(main(["-w", str(ws.root), "build", "--quality", "draft"]), 0, ws.qa_report.read_text())
             want = {"store-portrait": (886, 1920), "store-landscape": (1920, 886), "9:16": (540, 960)}
             for aspect, (w, h) in want.items():
-                p = probe(ws.out_dir / f"promo-{aspect.replace(':', 'x')}-draft.mp4")
+                video = ws.out_dir / f"promo-{aspect.replace(':', 'x')}-draft.mp4"
+                p = probe(video)
                 self.assertEqual((p["w"], p["h"]), (w, h), aspect)
                 self.assertIsNone(p["audio"], "silent mode")
+                # The device never touches the frame edges while the camera pushes in.
+                for t in (0.6, 1.8, 3.2):
+                    raw = subprocess.run(["ffmpeg", "-v", "error", "-ss", str(t), "-i", str(video), "-frames:v", "1",
+                                          "-pix_fmt", "gray", "-f", "rawvideo", "-"], capture_output=True).stdout
+                    self.assertEqual(len(raw), w * h)
+                    edge = max(max(raw[y * w + x] for x in (0, 1, 2, w - 3, w - 2, w - 1)) for y in range(0, h, 4))
+                    self.assertLess(edge, 60, f"{aspect} at {t}s: something bright touches the frame edge")
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 

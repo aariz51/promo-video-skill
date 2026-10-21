@@ -185,6 +185,12 @@ def validate(tl: dict, ws: Workspace, cfg: dict, claims: dict[str, dict]) -> Rep
         v = style.get(key)
         if v is not None and not re.fullmatch(r"#[0-9a-fA-F]{6}", str(v)):
             r.error("timeline.style", f"{key} must be a #rrggbb colour")
+    if ws.scan.exists() and not style.get("accent") and not cfg["style"].get("accent"):
+        from .analyzer import brand_accent
+        acc = brand_accent(read_json(ws.scan))
+        if acc:
+            r.warn("timeline.style", f"the product's colour {acc['value']} ({acc['why']}, {acc['source']}) is not "
+                   "used; set style.accent")
     narr = tl.get("narration", {"enabled": True})
     voice_on = bool(cfg["audio"]["voiceover"])
     if voice_on and not narr.get("enabled", True) and not narr.get("reason"):

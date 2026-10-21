@@ -247,7 +247,7 @@ def _classify_run(Y: list[list[float]], pre: int, post: int) -> tuple[str, dict]
         informative = [i for i, idx in enumerate(lines) if sum(abs(ys[j] - ye[j]) for j in idx) / len(idx) > 0.02]
         if len(informative) < 0.25 * n_lines:
             continue
-        fracs, sides, held = [], [], []
+        fracs, blocks, held, mixed = [], [], [], 0
         for k in range(pre + 1, post):
             yk, labels, res = Y[k], [], []
             for i in informative:
@@ -256,31 +256,44 @@ def _classify_run(Y: list[list[float]], pre: int, post: int) -> tuple[str, dict]
                 de = sum(abs(yk[j] - ye[j]) for j in idx)
                 labels.append(de < ds)
                 res.append((i, min(ds, de), sum(abs(ys[j] - ye[j]) for j in idx)))
+            frac = sum(labels) / len(labels)
+            fracs.append(frac)
+            if not 0.05 < frac < 0.95:
+                continue
+            if sum(1 for x, y in zip(labels, labels[1:]) if x != y) > 4:
+                mixed += 1
+                continue
+            # The largest run of lines already showing the new picture.
+            best, start = (0, 0, -1), None
+            for m, lab in enumerate(labels + [False]):
+                if lab and start is None:
+                    start = m
+                elif not lab and start is not None:
+                    if m - start > best[0]:
+                        best = (m - start, start, m - 1)
+                    start = None
+            blocks.append(best)
             # In a wipe each line shows one picture or the other, unmoved; in a pan it shows
-            # neither. Lines near the moving edge are ignored: promos often ride a light sweep there.
-            if 0 < sum(labels) < len(labels):
-                edge = next(informative[m] for m in range(1, len(labels)) if labels[m] != labels[m - 1])
-                far = [(r, c) for i, r, c in res if abs(i - edge) > 0.2 * n_lines]
-                if far:
-                    held.append(sum(r for r, _ in far) / max(sum(c for _, c in far), 1e-9))
-            changes = sum(1 for a, b in zip(labels, labels[1:]) if a != b)
-            fracs.append(sum(labels) / len(labels))
-            # Which end the new picture holds; a stray line or two inside the run is noise.
-            if changes <= 4:
-                sides.append("lead" if labels[0] and not labels[-1] else "trail" if labels[-1] and not labels[0] else None)
-            else:
-                sides.append("mixed")
+            # neither. Lines near the block's edges are ignored: promos often ride a light sweep there.
+            edges = (informative[best[1]], informative[best[2]])
+            far = [(r, c) for i, r, c in res if min(abs(i - e) for e in edges) > 0.2 * n_lines]
+            if far:
+                held.append(sum(r for r, _ in far) / max(sum(c for _, c in far), 1e-9))
         partial = [f for f in fracs if 0.08 < f < 0.92]
-        # Overlays (a light sweep, the incoming scene's own entrance) can blur a few frames.
-        clean = sum(1 for s in sides if s in ("lead", "trail", None))
-        if partial and clean >= 0.7 * len(sides) and (not held or statistics.median(held) < 0.35) and \
-                all(b >= a - 0.08 for a, b in zip(fracs, fracs[1:])):
-            known = [s for s in sides if s in ("lead", "trail")]
-            if known and all(s == known[0] for s in known):
-                # "lead": the new picture covers the left/top first, so the edge travels right/down.
-                d = {("x", "lead"): "right", ("x", "trail"): "left", ("y", "lead"): "down", ("y", "trail"): "up"}
-                return f"wipe-{d[(axis, known[0])]}", {"coverage": [round(f, 2) for f in fracs],
-                                                       "informativeLines": len(informative)}
+        rising = all(y >= x - 0.08 for x, y in zip(fracs, fracs[1:]))
+        if len(blocks) >= 2 and partial and mixed <= 0.3 * (len(blocks) + mixed) and rising and \
+                (not held or statistics.median(held) < 0.35):
+            # The front is the end of the block that moves; the other end stays where the wipe began.
+            d_start = blocks[-1][1] - blocks[0][1]
+            d_end = blocks[-1][2] - blocks[0][2]
+            if d_end > 0 and d_end > abs(d_start):
+                way = "right" if axis == "x" else "down"
+            elif d_start < 0 and -d_start > abs(d_end):
+                way = "left" if axis == "x" else "up"
+            else:
+                way = None
+            if way:
+                return f"wipe-{way}", {"coverage": [round(f, 2) for f in fracs], "informativeLines": len(informative)}
     # Dissolve: each inner frame ≈ (1-α)·start + α·end, with α rising.
     diff = [e - s for s, e in zip(ys, ye)]
     norm = sum(d * d for d in diff)

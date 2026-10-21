@@ -196,6 +196,31 @@ def check_motion(path: Path, rc: dict) -> tuple[Report, list[dict]]:
     return r, rows
 
 
+EDGE = 60  # 8-bit luma: content brighter than this on the outermost columns/rows touches the edge
+
+
+def check_edges(path: Path, rc: dict, width: int, height: int) -> Report:
+    """Warn when bright content touches the frame edge mid-scene: usually a device or card
+    cropped by its camera move. A warning, because some designs bleed off-frame on purpose."""
+    r = Report()
+    for sc in rc["scenes"]:
+        for frac in (0.5, 0.9):
+            t = (sc["from"] + sc["durationInFrames"] * frac) / rc["fps"]
+            raw = run(["ffmpeg", "-v", "error", "-ss", f"{t:.3f}", "-i", str(path), "-frames:v", "1",
+                       "-pix_fmt", "gray", "-f", "rawvideo", "-"], text=False).stdout
+            if len(raw) != width * height:
+                continue
+            cols = (0, 1, width - 2, width - 1)
+            side = max(max(raw[y * width + x] for x in cols) for y in range(0, height, 4))
+            rows = (0, height - 1)
+            top = max(max(raw[y * width + x] for y in rows) for x in range(0, width, 4))
+            if max(side, top) >= EDGE:
+                r.warn(path.name, f"scene '{sc['id']}' at {t:.1f}s: bright content touches the frame edge; "
+                       "look at it (a cropped device or card?)")
+                break
+    return r
+
+
 def check_transitions(path: Path, rc: dict) -> tuple[Report, list[dict]]:
     from . import reference as R
     r = Report()
@@ -285,6 +310,8 @@ def run_qa(ws: Workspace, videos: dict[str, Path], quality: str = "final") -> Re
         r, f = check_video(path, aspect, rc, render_scale(aspect, quality))
         rep.extend(r)
         mr, f["motion"] = check_motion(path, rc)
+        if f.get("width"):
+            rep.extend(check_edges(path, rc, f["width"], f["height"]))
         tr, f["transitions"] = check_transitions(path, rc)
         rep.extend(mr)
         rep.extend(tr)

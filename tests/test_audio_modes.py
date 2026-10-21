@@ -28,7 +28,9 @@ def set_audio(env: Env, mode: str, provider: str | None = None) -> None:
     args = ["-w", str(env.ws.root), "init", "--product", str(env.product), "--audio", mode]
     if provider:
         args += ["--provider", provider]
-    assert main(args) == 0
+    # These tests swap the engine for a fake, so `say` only has to look installed (CI is Linux).
+    with mock.patch("promo_engine.providers.shutil.which", lambda b: f"/usr/bin/{b}"):
+        assert main(args) == 0
 
 
 def fake_engine(calls: list):

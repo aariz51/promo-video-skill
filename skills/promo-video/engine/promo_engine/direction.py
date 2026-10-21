@@ -343,8 +343,14 @@ def storyboard(ws: Workspace, *, force: bool = False) -> Path:
     # Rounding must not change the runtime the reference sets.
     drift = round(runtime - sum(s["duration"] for s in scenes), 2)
     scenes[-1]["duration"] = round(scenes[-1]["duration"] + drift, 2)
+    style = {"preset": cfg["style"]["preset"]}
+    if ws.scan.exists():
+        from .analyzer import brand_accent
+        acc = brand_accent(read_json(ws.scan))
+        if acc:
+            style["accent"] = acc["value"]  # the product's colour, not the reference's
     tl = {"version": 1, "product": cfg["product"]["name"], "source": "reference", "seed": cfg["seed"],
-          "style": {"preset": cfg["style"]["preset"]},
+          "style": style,
           "reference": {"breakdown": "reference/breakdown.json", "fingerprint": bd["fingerprint"],
                         "runtime": runtime, "scale": round(k, 4), "dropped": [], "deviations": []},
           "narration": {"enabled": True}, "scenes": scenes}

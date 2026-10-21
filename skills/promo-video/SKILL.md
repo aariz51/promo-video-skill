@@ -126,7 +126,8 @@ Mode B: start from the reference's structure:
 python3 "$SKILL_DIR/bin/promo" storyboard     # one scene per measured scene, measured transitions
 ```
 
-Fill `kind`, `purpose`, `props` (and `narration`) for each scene from the brief; keep `ref`,
+Set `style.accent` to the product's own colour (the scan reports it; `storyboard` prefills
+it). Fill `kind`, `purpose`, `props` (and `narration`) for each scene from the brief; keep `ref`,
 `duration` and `transition`. A departure needs a `deviation` reason on the scene, or a
 `reference.dropped` entry with a reason. `promo check timeline` enforces the reference's
 order, lengths, transitions and runtime in Mode B, and real assets and sourced numbers in both.

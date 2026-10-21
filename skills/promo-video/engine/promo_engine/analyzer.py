@@ -421,3 +421,37 @@ def summarize(scan_data: dict, root: Path | None = None) -> str:
     if scan_data["skippedForSecurity"]:
         lines.append(f"Not read (secret-like names): {len(scan_data['skippedForSecurity'])} file(s)")
     return "\n".join(lines)
+
+
+def _rgb(hexv: str) -> tuple[float, float, float] | None:
+    h = hexv.lstrip("#")
+    if len(h) == 3:
+        h = "".join(c * 2 for c in h)
+    if not re.fullmatch(r"[0-9a-fA-F]{6}", h):
+        return None
+    return tuple(int(h[i:i + 2], 16) / 255 for i in (0, 2, 4))
+
+
+def brand_accent(scan_data: dict) -> dict | None:
+    """The product's accent colour, from evidence: a design token named brand / primary /
+    accent first, otherwise the most saturated mid-tone colour the code uses."""
+    brand = (scan_data or {}).get("brand") or {}
+    for var in brand.get("cssVariables", []):
+        if re.search(r"brand|primary|accent", var["name"], re.I) and _rgb(var["value"]):
+            return {"value": "#" + var["value"].lstrip("#").upper()[:6], "source": var["source"],
+                    "why": f"design token {var['name']}"}
+    best = None
+    for c in brand.get("colors", []):
+        rgb = _rgb(c["value"])
+        if not rgb:
+            continue
+        hi, lo = max(rgb), min(rgb)
+        sat = (hi - lo) / hi if hi else 0
+        lum = 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]
+        if sat > 0.3 and 0.12 < lum < 0.85 and (best is None or sat > best[0]):
+            best = (sat, c)
+    if best:
+        c = best[1]
+        return {"value": "#" + c["value"].lstrip("#").upper()[:6], "source": c["source"],
+                "why": "most saturated colour in the code"}
+    return None

@@ -56,7 +56,19 @@ export const Screen: React.FC<{ scene: Scene }> = ({ scene }) => {
         ? L.width * 0.74
         : L.width * 0.9;
   const barH = device === "browser" ? Math.max(22, maxW * 0.03) : 0;
-  const width = Math.min(maxW, (availH - barH) * aspect);
+  // The camera needs room: at its widest the device is scaled and shifted, and it must
+  // still sit inside the frame (in portrait a 90%-wide browser pushed ×1.14 would not).
+  const cam0 = p.camera ?? "push";
+  const fx = Math.abs(0.5 - focus.x);
+  const fy = Math.abs(0.5 - focus.y);
+  const reachX = { push: 0.57 + 0.14 * fx, pull: 0.58, pan: 0.575, hold: 0.5, rise: 0.5 }[cam0];
+  const reachY = { push: 0.57, pull: 0.58, pan: 0.525, hold: 0.5, rise: 0.5 }[cam0];
+  const margin = L.u * 3;
+  const fitX = (L.width / 2 - margin) / reachX;
+  const fitY =
+    ((availH / 2 - margin - barH * reachY) * aspect) /
+    (reachY + 0.08 * fy * aspect);
+  const width = Math.min(maxW, (availH - barH) * aspect, fitX, fitY);
   const e = interpolate(frame, [0, d], [0, 1], { easing: EASE.inOut });
   const enter = sEnter({ frame, fps, delay: 0 });
   const cam = p.camera ?? "push";
