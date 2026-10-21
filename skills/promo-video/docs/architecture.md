@@ -8,6 +8,11 @@ exact (mode and audio policy, measurement, validation, scheduling, sound, render
 ```
 INPUT ──▶ init / questions: mode from the input, audio policy {voiceover, soundEffects, music:false}
           │
+DISCOVER (both modes) ─▶ discovery.py: codebase · theme.py (tokens, fonts, UI, pixels) · capture.inspect_web
+          (launch, routes, real captures) · mobile.py (simulator/emulator, build, launch, deep links, captures)
+          · screenshots.py (manifest, selection) → PRODUCT_ANALYSIS.md, THEME_ANALYSIS.md, THEME.json,
+          ASSET_INVENTORY.md, SCREENSHOT_MANIFEST.json      (storyboard / compile refuse to run without it)
+          │
 PRODUCT REPOSITORY                         REFERENCE VIDEO (Mode B only)
    analyzer.py → product-scan.json            watcher.py ── claude-video `watch` (transcript, frames)
    (agent reads source, captures)             reference.py → reference/breakdown.json, motion-spec.json,
@@ -35,6 +40,11 @@ PRODUCT REPOSITORY                         REFERENCE VIDEO (Mode B only)
 | `config.py` | workspace layout; the run config, its validation (music can only be `false`), formats and render scale |
 | `reference_input.py` | the mode from the input: none, YouTube, other URL, or a probed local video |
 | `questions.py` | the opening questions still open; never re-asks a decided one |
+| `discovery.py` | PRODUCT_THEME_DISCOVERY: target check (never this skill), orchestration, the five reports, the gate |
+| `theme.py` | design tokens per mode (CSS, Tailwind, Flutter, iOS colour sets, Android), fonts, interface language, pixel corroboration, the film's adaptation (THEME.json) |
+| `capture.py` | safe launch, reuse-or-refuse on a busy port, per-route checks (HTTP, auth wall, runtime errors, blank, broken assets), headless-Chrome captures |
+| `mobile.py` | stack and device detection, promo's own simulator, build, launch, deep-link navigation, captures (all through an injectable runner) |
+| `screenshots.py` | the screenshot manifest: sources kept apart (captured / supplied / illustration), validation, scoring, selection, overrides |
 | `providers.py` | voice provider resolution; ambiguity and absence become questions, never a silent swap |
 | `analyzer.py`, `capture.py` | product map with evidence paths; screenshots of the running product; never reads secrets |
 | `watcher.py` | runs the `watch` skill, degrades honestly when it is missing or broken, reuses downloads |
@@ -60,6 +70,9 @@ PRODUCT REPOSITORY                         REFERENCE VIDEO (Mode B only)
 - **The renderer never invents timing.** `timeline.py` schedules every event; picture and
   sound share one clock. Transitions play over the incoming scene's first frames, so a scene
   starts where the reference's transition into it starts.
+- **The product owns the look.** THEME.json is the only source of the film's colours and type;
+  a reference controls structure and motion, never the brand. Product UI appears only as manifest
+  screenshots; illustrations are labelled.
 - **One audio policy.** Set once, carried in `render-config.json`, obeyed by voice, mix, render
   and QA. Music has no code path.
 - **Verification is measurement.** QA decodes the films and measures them against the plan;

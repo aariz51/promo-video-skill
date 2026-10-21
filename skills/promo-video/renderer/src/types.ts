@@ -37,6 +37,7 @@ export type Style = {
   line: string;
   dark: boolean;
   fontHead: string;
+  fontFile?: string | null; // the product's font, staged into public/fonts by the engine
 };
 
 export type Scene = {

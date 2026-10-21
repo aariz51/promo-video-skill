@@ -49,6 +49,13 @@ DURATION_TOLERANCE = 0.35  # a timeline scene may differ from its scaled referen
 RUNTIME_TOLERANCE = 0.20
 
 
+def shots_approved(root: Path) -> list[dict]:
+    p = Path(root) / "SCREENSHOT_MANIFEST.json"
+    if not p.exists():
+        return []
+    return [x for x in read_json(p).get("screenshots", []) if x.get("approved") and x["source"] != "illustration"]
+
+
 def load_breakdown(ws: Workspace) -> dict:
     p = ws.reference_dir / "breakdown.json"
     if not p.exists():
@@ -164,6 +171,28 @@ def scaffold(ws: Workspace, *, force: bool = False) -> Path:
     L += ["", "## MOTION LANGUAGE", "",
           "Turn each observation into a rule the build can follow (numbers, directions, durations), not adjectives.", ""]
     L += [f"- {lab}: {measured_motion[lab] + ' · TODO' if lab in measured_motion else 'TODO'}" for lab in MOTION_LABELS]
+    th = read_json(ws.theme) if ws.theme.exists() else None
+    L += ["", "## PRODUCT THEME", "",
+          "Measured by `promo discover` (THEME.json). The reference supplies structure and motion; these supply the "
+          "look, so the product stays recognisable.", ""]
+    if th:
+        pr, o = th["promo"], th["original"]
+        L += [f"- measured: {o['defaultMode']} interface; ground {pr['ground']}, ink {pr['ink']}, accent {pr['accent']}, "
+              f"type {pr['fontHead']}; {', '.join(c['label'] for c in o['classification'])}",
+              "- Kept from the product: TODO", "- Adapted for the film (and why): TODO"]
+    else:
+        L += ["- measured: none (run `promo discover`)"]
+    shots = approved_shots(ws)
+    sugg = suggest_shots(ws, bd) if shots else {}
+    L += ["", "## SCREENSHOT MAPPING", "",
+          "Which real product screen carries each reference scene. Use ids from SCREENSHOT_MANIFEST.json "
+          "(approved, genuine), or `none` with a reason.", "",
+          "| Scene | Screenshot | Feature it proves | Crop and scale | Why this screen |", "|---|---|---|---|---|"]
+    for sc in bd["scenes"]:
+        sid = sugg.get(sc["id"])
+        L.append(f"| {sc['id']} | {sid or 'none'} | TODO | TODO | TODO |")
+    if not shots:
+        L += ["", "No approved genuine screenshots exist: the film cannot show product UI (see PRODUCT_ANALYSIS.md)."]
     L += ["", "## REUSABLE RULES", "",
           "10–20 numbered rules. Each cites the scene (S##), transition (T##) or timestamp that evidences it.", "",
           "1. TODO", "", "## ADAPTATION DECISIONS", ""]
@@ -269,6 +298,25 @@ def check(md: str, bd: dict, root: Path, transcript: list[str] | None = None) ->
         m = re.search(rf"^- {re.escape(lab)}:\s*(.*)$", motion, re.M)
         if not m or not m.group(1).strip() or PLACEHOLDER.search(m.group(1)):
             r.error(where, f"MOTION LANGUAGE '{lab}' is not filled in")
+    if "PRODUCT THEME" not in secs:
+        r.error(where, "missing section '## PRODUCT THEME'")
+    mapping = _table_rows(secs.get("SCREENSHOT MAPPING", "")) if "SCREENSHOT MAPPING" in secs else None
+    if mapping is None:
+        r.error(where, "missing section '## SCREENSHOT MAPPING'")
+    else:
+        approved = {x["id"] for x in shots_approved(root)}
+        for row in mapping:
+            if len(row) < 5:
+                continue
+            sid = row[1].strip("` ")
+            if row[0] not in ids:
+                r.error(where, f"SCREENSHOT MAPPING names {row[0]}, which was not measured")
+            if sid not in ("none", "") and sid not in approved:
+                r.error(where, f"SCREENSHOT MAPPING uses '{sid}', which is not an approved screenshot")
+            if sid == "none" and approved and not row[4]:
+                r.error(where, f"{row[0]}: no screenshot and no reason")
+        if approved and not any(row[1].strip("` ") in approved for row in mapping if len(row) >= 2):
+            r.error(where, "approved real screenshots exist but no scene uses one")
     rules = parse_rules(md)
     if not 10 <= len(rules) <= 20:
         r.error(where, f"REUSABLE RULES needs 10–20 numbered rules (found {len(rules)})")
@@ -322,12 +370,23 @@ def storyboard(ws: Workspace, *, force: bool = False) -> Path:
     """timeline.json skeleton: one scene per measured scene, scaled, with mapped transitions."""
     if ws.timeline.exists() and not force:
         raise PromoError("timeline.json already exists", hint="pass --force to replace it with the reference skeleton")
+    from . import discovery
+    discovery.require(ws, "storyboard")
     bd = load_breakdown(ws)
     cfg = ws.config()
     runtime = target_runtime(bd, cfg)
     k = runtime / bd["metadata"]["duration"]
     in_tr = {t["to"]: t for t in bd["transitions"]}
     share = spans(bd)
+    th = read_json(ws.theme)
+    promo = th["promo"]
+    # The product's theme, not the reference's palette: the reference drives motion and structure.
+    style = {"preset": promo["preset"], "accent": promo["accent"], "ground": promo["ground"], "ink": promo["ink"]}
+    th["motion"] = {"source": "reference/motion-spec.json", "fingerprint": bd["fingerprint"],
+                    "transitions": bd["motionSpec"]["transitionVocabulary"],
+                    "averageScene": bd["motionSpec"]["averageScene"]}
+    write_json(ws.theme, th)
+    shots = suggest_shots(ws, bd)
     scenes = []
     for sc in bd["scenes"]:
         tr = in_tr.get(sc["id"])
@@ -335,6 +394,9 @@ def storyboard(ws: Workspace, *, force: bool = False) -> Path:
                  "purpose": "TODO", "source": f"reference {sc['id']} {fmt_time(sc['start'])}–{fmt_time(sc['end'])}",
                  "props": {}, "refMotion": {"camera": sc["measured"]["camera"], "energy": sc["measured"]["motionEnergy"],
                                             "colour": sc["measured"]["mean"]}}
+        if sc["id"] in shots:
+            entry["suggest"] = {"kind": "screen", "media": f"shot:{shots[sc['id']]}",
+                                "why": "a real product screen where the reference shows its subject"}
         if tr:
             entry["transition"] = implementation(tr)
             if entry["transition"]["type"] != "cut":
@@ -343,12 +405,6 @@ def storyboard(ws: Workspace, *, force: bool = False) -> Path:
     # Rounding must not change the runtime the reference sets.
     drift = round(runtime - sum(s["duration"] for s in scenes), 2)
     scenes[-1]["duration"] = round(scenes[-1]["duration"] + drift, 2)
-    style = {"preset": cfg["style"]["preset"]}
-    if ws.scan.exists():
-        from .analyzer import brand_accent
-        acc = brand_accent(read_json(ws.scan))
-        if acc:
-            style["accent"] = acc["value"]  # the product's colour, not the reference's
     tl = {"version": 1, "product": cfg["product"]["name"], "source": "reference", "seed": cfg["seed"],
           "style": style,
           "reference": {"breakdown": "reference/breakdown.json", "fingerprint": bd["fingerprint"],
@@ -356,6 +412,27 @@ def storyboard(ws: Workspace, *, force: bool = False) -> Path:
           "narration": {"enabled": True}, "scenes": scenes}
     write_json(ws.timeline, tl)
     return ws.timeline
+
+
+def approved_shots(ws: Workspace) -> list[dict]:
+    if not ws.screenshot_manifest.exists():
+        return []
+    m = read_json(ws.screenshot_manifest)
+    return sorted((x for x in m.get("screenshots", []) if x.get("approved") and x["source"] != "illustration"),
+                  key=lambda x: (-(x.get("score") or 0), x["id"]))
+
+
+def suggest_shots(ws: Workspace, bd: dict) -> dict[str, str]:
+    """Approved real screens for the reference's middle scenes, most camera motion first:
+    where the reference moves through its subject, the film moves through the product."""
+    shots = approved_shots(ws)
+    if not shots:
+        return {}
+    middle = bd["scenes"][1:-1] or bd["scenes"]
+    order = sorted(middle, key=lambda sc: (-(sc["measured"]["motionEnergy"] + (0.05 if "pan" in sc["measured"]["camera"]
+                                                                                 or "push" in sc["measured"]["camera"] else 0)),
+                                           sc["start"]))
+    return {sc["id"]: shots[i % len(shots)]["id"] for i, sc in enumerate(order[:len(shots)])}
 
 
 def structure_check(tl: dict, bd: dict, cfg: dict) -> Report:
@@ -442,6 +519,18 @@ def write_autonomous(ws: Workspace, rc: dict) -> Path:
         a, b = s["from"] / fps, (s["from"] + s["durationInFrames"]) / fps
         L.append(f"| {i} | {fmt_time(a)}–{fmt_time(b)} | {s['id']} | {s['kind']} | {s['purpose']} | "
                  f"{s.get('source') or '—'} | {', '.join(s['claims']) or '—'} |")
+    th = read_json(ws.theme) if ws.theme.exists() else None
+    if th:
+        pr, o = th["promo"], th["original"]
+        L += ["", "## PRODUCT THEME", "",
+              f"From the product (THEME.json, {th['discoveredFrom']['screens']} real screen(s) sampled): "
+              f"{o['defaultMode']} interface, {', '.join(c['label'] for c in o['classification'])}.",
+              f"The film: ground {pr['ground']}, ink {pr['ink']}, accent {pr['accent']}, type {pr['fontHead']}"
+              + (f"; deviation: {rc['style']['deviation']}" if rc["style"].get("deviation") else "; no departures.")]
+        L += [f"- {n}" for n in pr.get("notes", [])]
+    used = [(s["id"], sid) for s in rc["scenes"] for sid in (s.get("shots") or [])]
+    L += ["", "## REAL SCREENS IN THE FILM", ""]
+    L += [f"- {sc}: `{sid}`" for sc, sid in used] or ["- none: no approved genuine screenshot is used (see PRODUCT_ANALYSIS.md)"]
     L += ["", "## CREATIVE PROMPT", "", body or "(creative-prompt.md is missing)", ""]
     ws.direction.write_text("\n".join(L))
     return ws.direction

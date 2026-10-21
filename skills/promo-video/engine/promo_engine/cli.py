@@ -17,8 +17,8 @@ import shutil
 import sys
 from pathlib import Path
 
-from . import adapter, analyzer, artifacts, audio, capture, deliver, direction, providers, qa, questions, \
-    reference_input, render, timeline, voiceover, watcher
+from . import adapter, analyzer, artifacts, audio, capture, deliver, direction, discovery, providers, qa, \
+    questions, reference_input, render, screenshots, timeline, voiceover, watcher
 from .config import AUDIO_MODES, ASPECTS, PROVIDER_KEYS, Workspace, audio_mode, init_workspace, mode, \
     reference_source
 from .util import RENDERER_DIR, PromoError, Report, free_gb, read_json, write_json
@@ -130,6 +130,46 @@ def cmd_capture(args) -> int:
                             launch_cmd=cmd, cwd=cwd)
     for s in shots:
         print(f"  captured {s.relative_to(ws.root)}")
+    return 0
+
+
+def cmd_discover(args) -> int:
+    ws = _ws(args)
+    res = discovery.run(ws, launch=not args.no_launch, url=args.url, routes=args.routes, inspect_mobile=not args.no_mobile,
+                        size=args.size, supplied=[Path(x) for x in args.supplied or []])
+    m, th = res["manifest"], res["theme"]
+    print(f"{discovery.STAGE}: {m['product']}")
+    for label, rep in (("web", m["web"]), ("mobile", m["mobile"])):
+        print(f"  {label:<7} {rep['status']}" + (f" (blocked at {rep['stage']})" if rep.get("stage") else ""))
+        for lim in rep.get("limitations", [])[:6]:
+            print(f"          · {lim}")
+    sel = [x for x in m["screenshots"] if x["selected"]]
+    print(f"  screens {len(m['screenshots'])} candidates, {len(sel)} selected: " + (", ".join(x["id"] for x in sel) or
+          "none — no genuine screenshot is available"))
+    pr = th["promo"]
+    print(f"  theme   {th['original']['defaultMode']} · ground {pr['ground']} · ink {pr['ink']} · accent {pr['accent']} · "
+          f"type {pr['fontHead']} · {', '.join(c['label'] for c in th['original']['classification'])}")
+    print(f"Wrote {ws.product_analysis.name}, {ws.theme_analysis.name}, {ws.theme.name}, {ws.asset_inventory.name}, "
+          f"{ws.screenshot_manifest.name}. Look at every selected screenshot before the storyboard.")
+    return 0
+
+
+def cmd_select(args) -> int:
+    ws = _ws(args)
+    m = screenshots.load(ws.screenshot_manifest)
+    if m.get("stage") != discovery.STAGE:
+        raise PromoError("no screenshot manifest yet", hint="run `promo discover`")
+    known = screenshots.by_id(m)
+    for sid, verdict in [(x, "approved") for x in args.approve or []] + [(x, "rejected") for x in args.reject or []]:
+        if sid not in known:
+            raise PromoError(f"no screenshot '{sid}' in the manifest")
+        if verdict == "approved" and known[sid]["source"] == "illustration":
+            raise PromoError(f"'{sid}' is an illustration; it can only be used in a scene marked illustrative")
+        known[sid]["override"], known[sid]["overrideReason"] = verdict, args.reason
+    screenshots.select(m, ws.root, max_selected=args.max)
+    screenshots.save(ws.screenshot_manifest, m)
+    for x in sorted(m["screenshots"], key=lambda x: (not x["selected"], x["id"])):
+        print(f"  {'✓' if x['selected'] else '·'} {x['id']:<28} {x['source']:<12} {x['reason']}")
     return 0
 
 
@@ -328,7 +368,8 @@ def cmd_status(args) -> int:
         return 1
     cfg = ws.config()
     insp = reference_source(cfg)
-    steps = [("config", ws.config_path), ("product scan", ws.scan), ("product brief", ws.brief)]
+    steps = [("config", ws.config_path), ("product scan", ws.scan), ("product analysis", ws.product_analysis),
+             ("theme", ws.theme), ("screenshot manifest", ws.screenshot_manifest), ("product brief", ws.brief)]
     if insp:
         steps += [("watch evidence", ws.evidence), ("inspiration prompt", ws.inspiration)]
     steps += [("creative prompt", ws.creative), ("timeline", ws.timeline), ("render config", ws.render_config),
@@ -364,6 +405,18 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--size", choices=sorted(capture.SIZES), default="desktop")
     p.add_argument("--launch", action="store_true", help="start the product with its dev command first")
     p.add_argument("--cmd", help="launch command override")
+    p = sub.add_parser("discover", help="PRODUCT_THEME_DISCOVERY: codebase, theme, live app, real screenshots")
+    p.add_argument("--no-launch", action="store_true", help="do not start the app (codebase only; recorded as such)")
+    p.add_argument("--url", help="an already-running, authorised instance of the product (test environment)")
+    p.add_argument("--routes", nargs="*", help="routes to inspect (default: the scan's static routes, prioritised)")
+    p.add_argument("--no-mobile", action="store_true", help="skip simulator/emulator inspection")
+    p.add_argument("--size", choices=sorted(capture.SIZES), default="desktop")
+    p.add_argument("--supplied", nargs="*", help="genuine screenshots you already have")
+    p = sub.add_parser("select", help="review or override the screenshot selection")
+    p.add_argument("--approve", nargs="*")
+    p.add_argument("--reject", nargs="*")
+    p.add_argument("--reason", help="why (recorded in the manifest)")
+    p.add_argument("--max", type=int, default=screenshots.MAX_SELECTED)
     p = sub.add_parser("watch", help="analyse the reference video with the watch skill")
     p.add_argument("url", nargs="?", help="default: the configured reference")
     p.add_argument("--detail", default="balanced", choices=["efficient", "balanced", "token-burner"])
@@ -401,7 +454,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 COMMANDS = {"doctor": cmd_doctor, "init": cmd_init, "questions": cmd_questions, "status": cmd_status, "scan": cmd_scan,
-            "capture": cmd_capture, "watch": cmd_watch, "check": cmd_check, "adapt": cmd_adapt,
+            "capture": cmd_capture, "discover": cmd_discover, "select": cmd_select, "watch": cmd_watch, "check": cmd_check, "adapt": cmd_adapt,
             "direction": cmd_direction, "storyboard": cmd_storyboard, "deliver": cmd_deliver,
             "compile": cmd_compile, "voice": cmd_voice, "audio": cmd_audio, "render": cmd_render,
             "qa": cmd_qa, "build": cmd_build, "stills": cmd_stills}

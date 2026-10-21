@@ -122,6 +122,18 @@ class Workspace:
     @property
     def assets(self) -> Path: return self.root / "assets"
     @property
+    def captured(self) -> Path: return self.assets / "captured"
+    @property
+    def product_analysis(self) -> Path: return self.root / "PRODUCT_ANALYSIS.md"
+    @property
+    def theme_analysis(self) -> Path: return self.root / "THEME_ANALYSIS.md"
+    @property
+    def theme(self) -> Path: return self.root / "THEME.json"
+    @property
+    def asset_inventory(self) -> Path: return self.root / "ASSET_INVENTORY.md"
+    @property
+    def screenshot_manifest(self) -> Path: return self.root / "SCREENSHOT_MANIFEST.json"
+    @property
     def stage(self) -> Path: return self.root / "build" / "public"
     @property
     def vo_dir(self) -> Path: return self.stage / "audio" / "vo"
@@ -273,6 +285,8 @@ def init_workspace(ws: Workspace, *, product_root: Path, name: str | None = None
         gi.write_text("# regenerable pipeline output\nbuild/\nout/\ndeliver/\nqa/frames/\nqa/stills/\ninspiration/watch/\n"
                      "# measured evidence of a third-party video: regenerate with `promo watch`\nreference/frames/\n"
                      "reference/sheets/\n"
+                     "# screens of the product (may show test data): keep out of git unless you mean to share them\n"
+                     "assets/captured/\nassets/supplied/\n"
                      "# third-party transcript and local paths: regenerate with `promo watch`\n"
                      "inspiration/evidence.json\ninspiration/watch-report.md\n")
     return ws.config_path

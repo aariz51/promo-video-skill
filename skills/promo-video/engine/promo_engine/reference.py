@@ -273,16 +273,19 @@ def _classify_run(Y: list[list[float]], pre: int, post: int) -> tuple[str, dict]
                         best = (m - start, start, m - 1)
                     start = None
             blocks.append(best)
-            # In a wipe each line shows one picture or the other, unmoved; in a pan it shows
-            # neither. Lines near the block's edges are ignored: promos often ride a light sweep there.
+            # The revealed side of a wipe already shows the incoming picture; in a camera pan the
+            # newly visible content is still moving, so it does not. (The other side is no test: the
+            # outgoing scene may keep animating under the wipe.) Lines near the moving edge are
+            # ignored: promos often ride a light sweep there.
             edges = (informative[best[1]], informative[best[2]])
-            far = [(r, c) for i, r, c in res if min(abs(i - e) for e in edges) > 0.2 * n_lines]
-            if far:
-                held.append(sum(r for r, _ in far) / max(sum(c for _, c in far), 1e-9))
+            far_new = [(abs(Y[k][j] - ye[j]), abs(ys[j] - ye[j])) for (i, _, _), lab in zip(res, labels) if lab
+                       and min(abs(i - e) for e in edges) > 0.2 * n_lines for j in lines[i]]
+            if far_new:
+                held.append(sum(a for a, _ in far_new) / max(sum(c for _, c in far_new), 1e-9))
         partial = [f for f in fracs if 0.08 < f < 0.92]
         rising = all(y >= x - 0.08 for x, y in zip(fracs, fracs[1:]))
         if len(blocks) >= 2 and partial and mixed <= 0.3 * (len(blocks) + mixed) and rising and \
-                (not held or statistics.median(held) < 0.35):
+                (not held or statistics.median(held) < 0.25):
             # The front is the end of the block that moves; the other end stays where the wipe began.
             d_start = blocks[-1][1] - blocks[0][1]
             d_end = blocks[-1][2] - blocks[0][2]

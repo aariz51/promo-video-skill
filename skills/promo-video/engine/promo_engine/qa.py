@@ -196,13 +196,15 @@ def check_motion(path: Path, rc: dict) -> tuple[Report, list[dict]]:
     return r, rows
 
 
-EDGE = 60  # 8-bit luma: content brighter than this on the outermost columns/rows touches the edge
+EDGE = 45  # 8-bit luma: an edge pixel this far from the film's ground colour is content touching the edge
 
 
 def check_edges(path: Path, rc: dict, width: int, height: int) -> Report:
     """Warn when bright content touches the frame edge mid-scene: usually a device or card
     cropped by its camera move. A warning, because some designs bleed off-frame on purpose."""
     r = Report()
+    g = rc.get("style", {}).get("ground", "#0B0C0F").lstrip("#")
+    ground = round(0.299 * int(g[0:2], 16) + 0.587 * int(g[2:4], 16) + 0.114 * int(g[4:6], 16))
     for sc in rc["scenes"]:
         for frac in (0.5, 0.9):
             t = (sc["from"] + sc["durationInFrames"] * frac) / rc["fps"]
@@ -211,11 +213,11 @@ def check_edges(path: Path, rc: dict, width: int, height: int) -> Report:
             if len(raw) != width * height:
                 continue
             cols = (0, 1, width - 2, width - 1)
-            side = max(max(raw[y * width + x] for x in cols) for y in range(0, height, 4))
+            side = max(max(abs(raw[y * width + x] - ground) for x in cols) for y in range(0, height, 4))
             rows = (0, height - 1)
-            top = max(max(raw[y * width + x] for y in rows) for x in range(0, width, 4))
+            top = max(max(abs(raw[y * width + x] - ground) for y in rows) for x in range(0, width, 4))
             if max(side, top) >= EDGE:
-                r.warn(path.name, f"scene '{sc['id']}' at {t:.1f}s: bright content touches the frame edge; "
+                r.warn(path.name, f"scene '{sc['id']}' at {t:.1f}s: content touches the frame edge; "
                        "look at it (a cropped device or card?)")
                 break
     return r

@@ -196,7 +196,7 @@ HOOK (0:00–0:06) → PROBLEM (0:06–0:14) → DEMONSTRATION (0:14–0:28) →
 def timeline(media: str = "screenshots/dashboard.png") -> dict:
     return {
         "version": 1, "product": "Tallyboard", "source": "framework", "seed": 3,
-        "style": {"preset": "graphite", "accent": "#1F8A70"},
+        "style": {},  # the product's theme (THEME.json) is the style
         "narration": {"enabled": True},
         "scenes": [
             {"id": "hook", "kind": "hook", "duration": 8, "purpose": "mystery: receipts swirl",
@@ -244,10 +244,17 @@ class Env:
         (self.ws.assets / "screenshots").mkdir(parents=True, exist_ok=True)
         shutil.copy(self.product / "public" / "screenshots" / "dashboard.png", self.ws.assets / "screenshots" / "dashboard.png")
         self.ws.timeline.write_text(json.dumps(tl or timeline(), indent=2))
+        discover_offline(self.ws)
         return self
 
     def close(self):
         shutil.rmtree(self.tmp, ignore_errors=True)
+
+
+def discover_offline(ws) -> dict:
+    """The PRODUCT_THEME_DISCOVERY stage without launching anything (recorded as skipped)."""
+    from promo_engine import discovery
+    return discovery.run(ws, launch=False, inspect_mobile=False)
 
 
 def ffmpeg(*args: str) -> None:
@@ -387,3 +394,84 @@ def make_reference(dest: Path, profile: str) -> dict:
     truth["duration"] = round(total, 3)
     truth["scenes"] = len(spec["scenes"])
     return truth
+
+
+# ── a real, runnable web product (for live inspection and capture) ────────────────
+WEB_CSS = """@font-face { font-family: 'Inter'; src: url('/fonts/Inter.ttf') format('truetype'); font-weight: 100 900; }
+:root {
+  --brand: #1F8A70; --ink: #111418; --paper: #F7F5F0;
+  --background: #F7F5F0; --foreground: #111418; --primary: #1F8A70; --primary-foreground: #FFFFFF;
+  --accent: #F2A541; --card: #FFFFFF; --border: #E3DFD6; --destructive: #D64545; --success: #2E9E5B;
+  --radius: 14px;
+}
+.dark { --background: #0F1412; --foreground: #EEF3F1; --primary: #3FBF9B; --card: #18201D; --border: #26302C; }
+body { margin: 0; font-family: 'Inter', sans-serif; background: var(--background); color: var(--foreground); }
+header { display: flex; justify-content: space-between; align-items: center; padding: 20px 48px; border-bottom: 1px solid var(--border); }
+.logo { font-weight: 700; letter-spacing: -0.02em; font-size: 22px; color: var(--primary); }
+main { padding: 48px; }
+h1 { font-size: 56px; letter-spacing: -0.03em; font-weight: 700; margin: 0 0 16px; }
+.btn { display: inline-block; background: var(--primary); color: var(--primary-foreground); padding: 14px 22px; border-radius: var(--radius); font-weight: 600; text-decoration: none; border: 0; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 1px 2px rgba(0,0,0,.06); padding: 24px; }
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 28px; }
+.bar { height: 14px; border-radius: 7px; background: var(--primary); margin: 10px 0; }
+.label { text-transform: uppercase; letter-spacing: .08em; font-size: 12px; color: #6B6E76; }
+"""
+
+WEB_SERVER = r"""
+const http = require('http'); const fs = require('fs'); const path = require('path');
+const port = Number((process.argv.find(a => /^\d+$/.test(a))) || process.env.PORT || 3100);
+const shell = (title, body) => `<!doctype html><html><head><meta charset="utf-8"><title>${title} · Tallyboard</title>
+<link rel="stylesheet" href="/styles/globals.css"></head><body><header><span class="logo">Tallyboard</span>
+<nav><a class="btn" href="/reports">Open report</a></nav></header><main>${body}</main></body></html>`;
+const pages = {
+  '/': shell('Home', `<div class="label">Receipts in. A finished report out.</div><h1>Where did this month go?</h1>
+    <p>Drop a folder of receipts. Tallyboard groups every total by category.</p><button class="btn">Start a report</button>
+    <div class="grid"><div class="card"><div class="label">Step 1</div><h3>Drop receipts</h3></div>
+    <div class="card"><div class="label">Step 2</div><h3>Grouped by category</h3></div>
+    <div class="card"><div class="label">Step 3</div><h3>Export CSV</h3></div></div>`),
+  '/reports': shell('October report', `<div class="label">October · demo data</div><h1>$2,418.60 this month</h1>
+    <div class="grid">${[['Travel', 92], ['Food', 64], ['Software', 41], ['Office', 23], ['Hosting', 18], ['Other', 9]]
+      .map(([c, w]) => `<div class="card"><div class="label">${c}</div><div class="bar" style="width:${w}%"></div></div>`).join('')}</div>
+    <p><button class="btn">Export CSV</button></p>`),
+  '/settings': shell('Settings', `<h1>Settings</h1><div class="card">Signed in as test.user@example.com</div>`),
+  '/login': shell('Sign in', `<h1>Sign in</h1><div class="card">Email <input> Password <input type="password"></div>`),
+};
+http.createServer((req, res) => {
+  const url = req.url.split('?')[0];
+  if (url === '/admin') { res.writeHead(302, { Location: '/login' }); return res.end(); }
+  if (url.startsWith('/styles/') || url.startsWith('/fonts/')) {
+    const f = path.join(__dirname, url.startsWith('/fonts/') ? 'public' : '', url);
+    if (fs.existsSync(f)) { res.writeHead(200, { 'Content-Type': url.endsWith('.css') ? 'text/css' : 'font/ttf' }); return res.end(fs.readFileSync(f)); }
+  }
+  if (pages[url]) { res.writeHead(200, { 'Content-Type': 'text/html' }); return res.end(pages[url]); }
+  res.writeHead(404, { 'Content-Type': 'text/html' }); res.end('<h1>404</h1>');
+}).listen(port, () => console.log(`ready on http://localhost:${port}`));
+"""
+
+
+def free_port() -> int:
+    import socket
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+def make_web_product(root: Path, port: int, *, broken: bool = False) -> Path:
+    """make_product + a Node server that really serves the app (or, with `broken`, fails to start
+    after printing a credential-shaped line, to test that reports never repeat it)."""
+    make_product(root)
+    pkg = json.loads((root / "package.json").read_text())
+    pkg["scripts"]["dev"] = f"node server.js --port {port}"
+    (root / "package.json").write_text(json.dumps(pkg, indent=2))
+    for r in ("settings", "admin", "team", "login"):
+        (root / "app" / r).mkdir(parents=True, exist_ok=True)
+        (root / "app" / r / "page.tsx").write_text(f"export default function P() {{ return <main>{r}</main>; }}\n")
+    (root / "styles" / "globals.css").write_text(WEB_CSS)
+    (root / "public" / "fonts").mkdir(parents=True, exist_ok=True)
+    shutil.copy(SKILL / "renderer" / "public" / "fonts" / "Inter.ttf", root / "public" / "fonts" / "Inter.ttf")
+    if broken:
+        (root / "server.js").write_text("console.log('DATABASE_URL=postgres://demo:hunter2@db.internal/app');\n"
+                                        "console.error('Error: Cannot find module \"next\"'); process.exit(1);\n")
+    else:
+        (root / "server.js").write_text(WEB_SERVER)
+    return root

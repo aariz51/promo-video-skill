@@ -1,7 +1,10 @@
 import { staticFile } from "remotion";
 
 // Bundled faces, so a render looks the same on every machine.
-export const FONT_SANS = 'InterVar, "Inter", system-ui, "Segoe UI", sans-serif';
+// ProductSans is the product's own font (THEME.json → style.fontFile), declared by
+// FontLoader only when the product ships a font file; otherwise the bundled Inter is used.
+export const FONT_SANS =
+  '"ProductSans", InterVar, "Inter", system-ui, "Segoe UI", sans-serif';
 export const FONT_MONO =
   '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
 

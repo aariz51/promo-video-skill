@@ -37,6 +37,13 @@ def stage(ws: Workspace, rc: dict) -> Path:
         dst = pub / "fonts" / f.name
         if f.is_file() and (not dst.exists() or dst.stat().st_size != f.stat().st_size):
             shutil.copy2(f, dst)
+    font = rc.get("style", {}).get("fontSource")
+    if font:
+        src = ws.product_root / font
+        if src.is_file():
+            shutil.copy2(src, pub / rc["style"]["fontFile"])
+        else:
+            raise PromoError(f"the product's font {font} (THEME.json) is missing", hint="re-run `promo discover`")
     missing = []
     for s in rc["scenes"]:
         for ref in _media_refs(s["props"]):

@@ -22,7 +22,8 @@ from .config import Workspace, mode
 from .util import RENDERER_DIR, PromoError, read_json, write_json
 
 RENDERER_FILES = ["package.json", "package-lock.json", "tsconfig.json", "remotion.config.ts"]
-TEXT_ARTIFACTS = ["CREATIVE_DIRECTION.md", "storyboard.md", "narration.txt", "product-brief.md",
+TEXT_ARTIFACTS = ["CREATIVE_DIRECTION.md", "PRODUCT_ANALYSIS.md", "THEME_ANALYSIS.md", "THEME.json", "ASSET_INVENTORY.md",
+                  "SCREENSHOT_MANIFEST.json", "storyboard.md", "narration.txt", "product-brief.md",
                   "creative-prompt.md", "timeline.json", "render-config.json", "promo.config.json", "TEST_REPORT.md"]
 
 
@@ -59,6 +60,8 @@ def eject(ws: Workspace, dest: Path) -> Path:
     pub = dest / "public"
     shutil.copytree(RENDERER_DIR / "public" / "fonts", pub / "fonts")
     staged = ws.stage
+    for f in (staged / "fonts").glob("product.*"):  # the product's own typeface, from THEME.json
+        shutil.copy2(f, pub / "fonts" / f.name)
     for sub in ("assets", "audio"):
         if (staged / sub).is_dir():
             shutil.copytree(staged / sub, pub / sub, ignore=shutil.ignore_patterns("vo"))
@@ -99,6 +102,17 @@ def deliver(ws: Workspace, *, out: Path | None = None, include_drafts: bool = Fa
             files.append({"path": name, "bytes": src.stat().st_size})
     shutil.copy2(val_path, dest / "validation.json")
     files.append({"path": "validation.json", "bytes": val_path.stat().st_size})
+    if ws.screenshot_manifest.exists():
+        # The selected genuine screens (and any illustration the film used), named by manifest id.
+        used = {sid for sc in read_json(ws.render_config).get("scenes", []) for sid in (sc.get("shots") or [])} \
+            if ws.render_config.exists() else set()
+        for shot in read_json(ws.screenshot_manifest).get("screenshots", []):
+            src = ws.root / shot["path"]
+            if (shot.get("selected") or shot["id"] in used) and src.is_file():
+                dst = dest / "screenshots" / f"{shot['id']}{src.suffix}"
+                _place(src, dst)
+                files.append({"path": f"screenshots/{dst.name}", "bytes": src.stat().st_size, "source": shot["source"],
+                              "usedInFilm": shot["id"] in used})
     if mode(ws.config()) == "reference" and ws.reference_dir.is_dir():
         for name in ("breakdown.json", "motion-spec.json"):
             if (ws.reference_dir / name).exists():

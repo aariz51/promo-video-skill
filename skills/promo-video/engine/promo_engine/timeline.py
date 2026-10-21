@@ -18,7 +18,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from . import direction, sound
+from . import direction, discovery, sound
 from .analyzer import image_size
 from .artifacts import parse_claims
 from .config import ASPECTS, QUALITY, Workspace, audio_mode, mode
@@ -79,6 +79,69 @@ def _media_refs(props: dict) -> list[str]:
             if isinstance(it, dict) and isinstance(it.get("media"), str):
                 refs.append(it["media"])
     return refs
+
+
+SHOT = "shot:"
+SHOT_DIRS = ("captured/", "supplied/", "illustrations/")
+
+
+def load_shots(ws: Workspace) -> dict[str, dict]:
+    return {x["id"]: x for x in read_json(ws.screenshot_manifest).get("screenshots", [])} \
+        if ws.screenshot_manifest.exists() else {}
+
+
+def _asset_rel(entry: dict) -> str:
+    """Manifest paths are workspace-relative; scene media are relative to assets/."""
+    return entry["path"][len("assets/"):] if entry["path"].startswith("assets/") else entry["path"]
+
+
+def resolve_shots(props: dict, shots: dict[str, dict], illustrative: bool, where: str, r: Report | None) -> tuple[dict, list[str]]:
+    """Replace `shot:<id>` media with the manifest's file and check provenance. Returns the
+    new props and the screenshot ids the scene shows."""
+    by_path = {_asset_rel(e): e for e in shots.values()}
+    used: list[str] = []
+
+    def one(ref):
+        if not isinstance(ref, str):
+            return ref
+        entry = None
+        if ref.startswith(SHOT):
+            entry = shots.get(ref[len(SHOT):])
+            if entry is None:
+                if r is not None:
+                    r.error(where, f"screenshot id '{ref[len(SHOT):]}' is not in SCREENSHOT_MANIFEST.json")
+                return ref
+        elif ref.startswith(SHOT_DIRS):
+            entry = by_path.get(ref)
+            if entry is None:
+                if r is not None:
+                    r.error(where, f"'{ref}' is not in SCREENSHOT_MANIFEST.json; refer to screens by id (shot:<id>)")
+                return ref
+        if entry is None:
+            return ref
+        used.append(entry["id"])
+        if r is not None:
+            if entry["source"] == "illustration" and not illustrative:
+                r.error(where, f"'{entry['id']}' is an illustration: mark the scene `illustrative: true` "
+                        "(it must never pass for a real screen)")
+            elif entry["source"] != "illustration" and not entry.get("approved"):
+                r.error(where, f"screenshot '{entry['id']}' is not approved for the film ({entry.get('reason')}); "
+                        "`promo select --approve` it if that is wrong")
+        return _asset_rel(entry)
+
+    out = dict(props)
+    for key in ("media", "logo"):
+        if key in out:
+            out[key] = one(out[key])
+    for coll in ("items", "steps"):
+        if isinstance(out.get(coll), list):
+            out[coll] = [dict(it, media=one(it["media"])) if isinstance(it, dict) and "media" in it else it
+                         for it in out[coll]]
+    return out, used
+
+
+def theme_promo(ws: Workspace) -> dict | None:
+    return read_json(ws.theme).get("promo") if ws.theme.exists() else None
 
 
 def media_aspect(path: Path) -> float:
@@ -185,18 +248,27 @@ def validate(tl: dict, ws: Workspace, cfg: dict, claims: dict[str, dict]) -> Rep
         v = style.get(key)
         if v is not None and not re.fullmatch(r"#[0-9a-fA-F]{6}", str(v)):
             r.error("timeline.style", f"{key} must be a #rrggbb colour")
-    if ws.scan.exists() and not style.get("accent") and not cfg["style"].get("accent"):
-        from .analyzer import brand_accent
-        acc = brand_accent(read_json(ws.scan))
-        if acc:
-            r.warn("timeline.style", f"the product's colour {acc['value']} ({acc['why']}, {acc['source']}) is not "
-                   "used; set style.accent")
+    if not discovery.done(ws):
+        r.error("timeline", "the product-theme discovery stage has not run: `promo discover` inspects the codebase, "
+                "launches the app where possible, captures real screens and reads the theme")
+    promo = theme_promo(ws)
+    if promo and not style.get("deviation"):
+        # THEME.json is the one source of the film's colours: the product's identity stays recognisable.
+        for key in ("accent", "ground", "ink"):
+            if style.get(key) and style[key].upper() != str(promo[key]).upper():
+                r.error("timeline.style", f"{key} {style[key]} differs from the product's {promo[key]} (THEME.json); "
+                        "use the product's theme or give style.deviation a reason")
+        if style.get("preset") and (style["preset"] == "paper") == promo["dark"]:
+            r.error("timeline.style", f"preset '{style['preset']}' turns the product's "
+                    f"{'dark' if promo['dark'] else 'light'} interface {'light' if promo['dark'] else 'dark'}; "
+                    "keep its theme or give style.deviation a reason")
     narr = tl.get("narration", {"enabled": True})
     voice_on = bool(cfg["audio"]["voiceover"])
     if voice_on and not narr.get("enabled", True) and not narr.get("reason"):
         r.error("timeline.narration", "narration is disabled without a reason; the chosen audio mode has voice-over")
 
     ids, total = set(), 0.0
+    shots = load_shots(ws)
     for i, s in enumerate(scenes):
         where = f"scene[{i}]"
         sid = s.get("id")
@@ -245,6 +317,7 @@ def validate(tl: dict, ws: Workspace, cfg: dict, claims: dict[str, dict]) -> Rep
                 v = props.get(side) or {}
                 if not isinstance(v, dict) or not v.get("title") or not (1 <= len(v.get("items", [])) <= 5):
                     r.error(where, f"props.{side} needs a title and 1–5 items")
+        props, _used = resolve_shots(props, shots, bool(s.get("illustrative")), where, r)
         for ref in _media_refs(props):
             p = ws.assets / ref
             if Path(ref).suffix.lower() not in MEDIA_EXT:
@@ -328,15 +401,28 @@ STYLE_PRESETS = {
 }
 
 
-def resolve_style(tl_style: dict, cfg: dict) -> dict:
-    preset = tl_style.get("preset", cfg["style"]["preset"])
+def resolve_style(tl_style: dict, cfg: dict, promo: dict | None = None) -> dict:
+    """Preset, then the product's theme (THEME.json), then a declared timeline deviation."""
+    preset = tl_style.get("preset") or (promo or {}).get("preset") or cfg["style"]["preset"]
     out = dict(STYLE_PRESETS[preset], preset=preset)
+    out["fontHead"] = "Inter"
+    out["fontFile"] = None
+    if promo:
+        for k in ("ground", "ground2", "ink", "inkSoft", "line", "accent", "dark", "fontHead"):
+            if promo.get(k) is not None:
+                out[k] = promo[k]
+        if promo.get("fontFile"):
+            out["fontSource"] = promo["fontFile"]
+            out["fontFile"] = "fonts/product" + Path(promo["fontFile"]).suffix.lower()
+        out["source"] = "THEME.json"
     if cfg["style"].get("accent"):
         out["accent"] = cfg["style"]["accent"]
     for k in ("accent", "ground", "ink"):
         if tl_style.get(k):
             out[k] = tl_style[k]
-    out["fontHead"] = tl_style.get("fontHead", "Inter")
+    if tl_style.get("deviation"):
+        out["deviation"] = tl_style["deviation"]
+    out["fontHead"] = tl_style.get("fontHead", out["fontHead"])
     return out
 
 
@@ -344,7 +430,9 @@ def compile_timeline(ws: Workspace) -> tuple[dict, Report]:
     cfg = ws.config()
     if not ws.timeline.exists():
         raise PromoError("timeline.json does not exist yet", hint="write it from creative-prompt.md (see docs/timeline.md)")
+    discovery.require(ws, "compile")
     tl = read_json(ws.timeline)
+    shots = load_shots(ws)
     claims = parse_claims(ws.brief.read_text()) if ws.brief.exists() else {}
     if not claims:
         raise PromoError("product-brief.md has no FACTUAL CLAIMS; the timeline cannot be fact-checked")
@@ -360,6 +448,9 @@ def compile_timeline(ws: Workspace) -> tuple[dict, Report]:
         d = float(s["duration"])
         props = dict(s.get("props") or {})
         where = f"scene '{s['id']}'"
+        props, used = resolve_shots(props, shots, bool(s.get("illustrative")), where, None)
+        if used:
+            props["_shots"] = used
         props["_t"] = _schedule(s["kind"], props, d, where, rep)
         refs = _media_refs(props)
         if refs:
@@ -378,7 +469,8 @@ def compile_timeline(ws: Workspace) -> tuple[dict, Report]:
             tr_out["easing"] = tr["easing"]
         scenes_out.append({
             "id": s["id"], "kind": s["kind"], "purpose": s["purpose"], "source": s.get("source"),
-            "ref": s.get("ref"), "deviation": s.get("deviation"),
+            "ref": s.get("ref"), "deviation": s.get("deviation"), "shots": used,
+            "illustrative": bool(s.get("illustrative")),
             "from": round(start * fps), "durationInFrames": round(d * fps),
             "transition": tr_out,
             "props": props, "claims": s.get("claims", []),
@@ -422,7 +514,7 @@ def compile_timeline(ws: Workspace) -> tuple[dict, Report]:
         "duration": round(start, 3),
         "compositions": [{"aspect": a, **ASPECTS[a]} for a in cfg["format"]["aspects"]],
         "quality": {"name": cfg["render"]["quality"], **quality},
-        "style": resolve_style(tl.get("style", {}), cfg),
+        "style": resolve_style(tl.get("style", {}), cfg, theme_promo(ws)),
         "scenes": scenes_out,
         "narration": {"enabled": narr_enabled, "reason": narr_reason, "lines": narration},
         "audioPolicy": pol,
@@ -482,8 +574,11 @@ def storyboard_md(rc: dict, cues: list[dict]) -> str:
     lines = [f"# Storyboard — {rc['product']}", "",
              f"Generated from timeline.json by `promo compile`. {rc['duration']:.1f}s · {fps} fps · "
              f"source: {rc['source']} · style: {rc['style']['preset']} · seed {rc['seed']}", "",
-             "| # | Time | Scene | Primitive | Purpose | Visual | In | Narration | Sound | Claims | Reference |",
-             "|---|---|---|---|---|---|---|---|---|---|---|"]
+             f"Theme ({rc['style'].get('source', 'preset')}): ground {rc['style']['ground']} · ink {rc['style']['ink']} · "
+             f"accent {rc['style']['accent']} · type {rc['style']['fontHead']}"
+             + (f" · deviation: {rc['style']['deviation']}" if rc['style'].get('deviation') else ""), "",
+             "| # | Time | Scene | Primitive | Purpose | Visual | Screens | In | Narration | Sound | Claims | Reference |",
+             "|---|---|---|---|---|---|---|---|---|---|---|---|"]
     by_scene: dict[str, list[str]] = {}
     for c in cues:
         by_scene.setdefault(c["scene"], []).append(c["fx"])
@@ -494,7 +589,8 @@ def storyboard_md(rc: dict, cues: list[dict]) -> str:
         fx = by_scene.get(s["id"], [])
         fx_s = ", ".join(sorted(set(fx), key=fx.index)) if fx else "—"
         lines.append(f"| {i} | {fmt_time(a)}–{fmt_time(b)} | {s['id']} | {s['kind']} | {s['purpose']} | "
-                     f"{_visual(s)} | {_tr(s['transition'])} | {narr.get(s['id'], '—')} | {fx_s} | "
+                     f"{_visual(s)} | {', '.join(s.get('shots') or []) or '—'}{' (illustrative)' if s.get('illustrative') else ''} | "
+                     f"{_tr(s['transition'])} | {narr.get(s['id'], '—')} | {fx_s} | "
                      f"{', '.join(s['claims']) or '—'} | {_ref(s)} |")
     pol = rc.get("audioPolicy") or {"mode": "voiceover"}
     lines += ["", {"voiceover": "Audio: voice-over + sound effects. Background music: none.",

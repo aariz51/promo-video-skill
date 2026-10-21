@@ -4,7 +4,7 @@ from __future__ import annotations
 
 COMPACT = {
     "version": 1, "product": "Tallyboard", "source": "framework", "seed": 3,
-    "style": {"preset": "graphite", "accent": "#1F8A70"},
+    "style": {},  # the product's theme (THEME.json) styles the film
     "narration": {"enabled": True},
     "scenes": [
         {"id": "open", "kind": "statement", "duration": 2.5, "purpose": "the question before the name",
@@ -38,8 +38,9 @@ def complete_creative_prompt(scaffold: str) -> str:
         "Receipts in, a finished monthly report out. Ideas: drop · group · export.")
     out = out.replace("TODO: beat lengths, holds, acceleration, still ending, in seconds.",
                       "2.5 s question, 2.5 s name, 3.5 s proof, 3.5 s demonstration, 3.5 s still ending.")
-    out = out.replace("TODO: ground, accent, type, depth, camera grammar, transitions.",
-                      "Graphite ground, brand green #1F8A70, one sans; push on the proof, wipe into the demo, dip to close.")
+    out = out.replace("TODO: depth, camera grammar, transitions, and any departure from the product theme (with why).",
+                      "The product's own light theme and brand green; push on the proof, wipe into the demo, dip to close; "
+                      "no departure from the product theme.")
     out = out.replace("No background music. TODO: layers and where they fire.",
                       "No background music. Clicks on interaction, a chime when the report resolves.")
     out = out.replace("TODO: one sparse line per beat, and one sentence of voice direction.",
@@ -49,4 +50,13 @@ def complete_creative_prompt(scaffold: str) -> str:
     out = out.replace("→ for Tallyboard: TODO", "→ for Tallyboard: applied in the compact cut (C1, C2)")
     while "| TODO |" in out:  # adjacent cells share a pipe, so one pass only fills every other one
         out = out.replace("| TODO |", "| C1 |")
+    return out
+
+
+def with_real_screen(tl: dict, shot: str) -> dict:
+    """The compact film with its device scene showing a genuine captured screen, by manifest id."""
+    import json
+    out = json.loads(json.dumps(tl))
+    scene = next(s for s in out["scenes"] if s["kind"] == "screen")
+    scene["props"]["media"] = f"shot:{shot}"
     return out

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 from dataclasses import dataclass, field
@@ -26,6 +27,17 @@ def redact(text: str) -> str:
         if len(v) >= 8:
             text = text.replace(v, f"<{var}>")
     return text
+
+
+_SECRETISH = re.compile(r"((?:[A-Z][A-Z0-9_]*(?:KEY|TOKEN|SECRET|PASSWORD|PASS|PWD|DSN|URL))\s*[=:]\s*)\S+", re.I)
+_CRED_URL = re.compile(r"(\b[a-z][\w+.-]*://)[^\s:/@]+:[^\s@/]+@", re.I)
+
+
+def scrub(text: str) -> str:
+    """Anything written for people to read (reports, launch logs): drop credential-shaped values."""
+    text = redact(text)
+    text = _CRED_URL.sub(r"\1<credentials>@", text)
+    return _SECRETISH.sub(r"\1<redacted>", text)
 
 
 class PromoError(Exception):

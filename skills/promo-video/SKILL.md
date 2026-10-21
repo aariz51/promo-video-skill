@@ -72,12 +72,47 @@ The audio choice is stored as `{voiceover, soundEffects, music: false}`. `music`
 other valid value. `init` rejects a reference it cannot resolve (bad URL, missing or
 undecodable file); show the reason and ask again. Never guess a URL.
 
-## Step 2: Understand the product
+## Step 2: Discover the real product (PRODUCT_THEME_DISCOVERY, both modes)
 
-The scan is a map, not an answer. Read the source it points to until you can say what the
-product does, for whom, its strongest visual demonstration (the "money shot"), and which
-screens deserve hero treatment. If it runs, see it: `promo capture --launch --routes / /x`.
-Use only real material; never draw UI the product does not have.
+```bash
+python3 "$SKILL_DIR/bin/promo" discover            # codebase, theme, live app, real screenshots
+python3 "$SKILL_DIR/bin/promo" select [--approve id …] [--reject id … --reason "…"]   # optional review
+```
+
+`discover` refuses to treat this skill's own repository as the product. It then:
+
+- reads the codebase;
+- launches the web app with its own safe `dev`/`start` script, or reuses an instance already
+  serving this product (never one serving something else);
+- checks each route, recording 404s, login walls, runtime-error overlays, blank pages and
+  broken assets instead of capturing them;
+- captures the routes that render into `promo/assets/captured/web/`.
+
+For a mobile project it detects the stack and uses its own iOS Simulator (never someone
+else's booted one) or a running Android emulator or device. It then builds and launches the
+app, follows the app's own deep links, and captures into `assets/captured/mobile/`.
+Screenshots already in the repository, or passed with `--supplied`, are registered as
+*supplied*. Files in `assets/illustrations/` are *illustrations*, never real screens. Use
+`--url` for an authorised test instance, `--no-launch` when launching is not possible (it is
+then recorded as not inspected), and never submit payments, messages or deletions to get a
+screen.
+
+It writes:
+
+- `PRODUCT_ANALYSIS.md`
+- `THEME_ANALYSIS.md`
+- `THEME.json`, the product's palette per mode, fonts and interface language with evidence,
+  and the film's use of it
+- `ASSET_INVENTORY.md`
+- `SCREENSHOT_MANIFEST.json`, every candidate with its source, size, state, limitations and
+  a selected-or-not reason
+
+**Open and look at every selected screenshot.** If something it needed was blocked (credentials,
+a broken build, no simulator), say so to the user and carry on with what is genuine. Never
+replace the product with placeholder UI.
+
+The scan and analysis are a map, not an answer. Read the source they point to until you can
+say what the product does, for whom, and its strongest visual demonstration (the "money shot").
 
 Write `promo/product-brief.md` (`framework/product-brief.template.md`). Every claim is
 `- C1: … — source: path:line`; when unsure, leave it out. No invented statistics, users,
@@ -90,7 +125,8 @@ python3 "$SKILL_DIR/bin/promo" watch [--no-whisper]     # watch skill + promo's 
 python3 "$SKILL_DIR/bin/promo" direction                # scaffolds CREATIVE_DIRECTION.md
 ```
 
-`watch` runs the installed `watch` skill (transcript, frames) and then measures the file
+Run this after `discover`: the direction document maps the reference's scenes onto the
+product's real screens and theme. `watch` runs the installed `watch` skill (transcript, frames) and then measures the file
 itself: metadata, every scene boundary, each transition's type (cut, dissolve, dip to
 black/white, wipe and its direction, or `gradual` when none fits), each scene's camera move,
 colour and motion, evidence frames and timestamped contact sheets in `promo/reference/`. If
@@ -104,7 +140,11 @@ replace every TODO in `CREATIVE_DIRECTION.md`. For each of the 20 fields per sce
 is visible first and mark interpretation as `Interpretation:`. Describe how the reference
 is made, never what it says: no copied narration, logos, footage or distinctive assets.
 Fill the transition table, the motion language, 10–20 reusable rules (each citing S##/T## or
-a timestamp) and the adaptation decisions. `promo check direction` must pass.
+a timestamp) and the adaptation decisions. Fill PRODUCT THEME (what is kept from the product,
+what is adapted for the film and why) and the SCREENSHOT MAPPING (which real screen carries
+each reference scene, the feature it proves, how it is cropped). The reference controls
+structure and motion; the product controls content, interface and branding.
+`promo check direction` must pass.
 
 ## Step 4: Creative prompt
 
@@ -126,11 +166,17 @@ Mode B: start from the reference's structure:
 python3 "$SKILL_DIR/bin/promo" storyboard     # one scene per measured scene, measured transitions
 ```
 
-Set `style.accent` to the product's own colour (the scan reports it; `storyboard` prefills
-it). Fill `kind`, `purpose`, `props` (and `narration`) for each scene from the brief; keep `ref`,
-`duration` and `transition`. A departure needs a `deviation` reason on the scene, or a
+Fill `kind`, `purpose`, `props` (and `narration`) for each scene from the brief, using the
+storyboard's `suggest` (a real screen proposed for that reference scene) where it fits. Keep
+`ref`, `duration` and `transition`. A departure needs a `deviation` reason on the scene, or a
 `reference.dropped` entry with a reason. `promo check timeline` enforces the reference's
 order, lengths, transitions and runtime in Mode B, and real assets and sourced numbers in both.
+
+**The product's look comes from `THEME.json`.** The film's ground, ink, accent and type are
+the product's own. A light product makes a light film, and a reference's palette never
+replaces the brand. A departure needs `style.deviation` with a reason. Show product UI only
+as `shot:<id>` from the manifest (approved, genuine). An illustration needs
+`"illustrative": true` on the scene and must never pass for a real screen.
 
 Primitives: `hook` `wordzoom` `title` `statement` `pillars` `screen` `flow` `terminal`
 `document` `montage` `compare` `metric` `lockup`. Transitions: `cut` `fade` `push` `wipe`
@@ -165,7 +211,8 @@ pass. `promo doctor` reports free disk; renders need about 1–2 GB.
 python3 "$SKILL_DIR/bin/promo" deliver
 ```
 
-`promo/deliver/` holds the films, `CREATIVE_DIRECTION.md`, storyboard, brief, the reports,
+`promo/deliver/` holds the films, the discovery reports and selected screenshots,
+`CREATIVE_DIRECTION.md`, storyboard, brief, the reports,
 the reference evidence (Mode B), and `remotion/`, an editable Remotion project with this
 film as its default. Tell the user briefly: the mode and why, what was taken from the
 reference or framework versus the product, the scene list, what QA verified, and the
@@ -173,7 +220,8 @@ exact paths.
 
 ## Failure rules
 
-Stop and explain, never paper over: unresolvable reference, inaccessible or undecodable
+Stop and explain, never paper over: product root is this skill, app will not launch (say
+which stage failed and what that means for the film), no simulator or emulator, unresolvable reference, inaccessible or undecodable
 video, missing tools (`promo doctor`), product will not launch, missing assets, provider not
 configured or failing, a voice take that will not match its script, malformed timeline,
 render failure (the log path is printed), QA failure, low disk. Never continue on invented

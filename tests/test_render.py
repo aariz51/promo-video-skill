@@ -30,6 +30,10 @@ from promo_engine.cli import main
 from promo_engine.config import Workspace
 from promo_engine.util import RENDERER_DIR, read_json, write_json
 
+
+def screenshots_by(manifest: dict) -> dict:
+    return {s["id"]: s for s in manifest["screenshots"]}
+
 RUN = os.environ.get("PROMO_RENDER") == "1"
 READY = (RENDERER_DIR / "node_modules" / "@remotion" / "cli").is_dir() and helpers.has_ffmpeg()
 skip = unittest.skipUnless(RUN and READY, "set PROMO_RENDER=1 (needs renderer node_modules and ffmpeg)")
@@ -51,8 +55,12 @@ def frame_luma(path: Path, t: float) -> list[float]:
     return reference._luma(raw)
 
 
-def product(tmp: Path, *, audio: str, formats=("16:9",), reference_arg="none", runtime="10-20") -> Workspace:
-    prod = helpers.make_product(tmp / "tallyboard")
+def product(tmp: Path, *, audio: str, formats=("16:9",), reference_arg="none", runtime="10-20",
+            web: bool = False) -> Workspace:
+    """The fixture product, initialised, through the discovery stage. With `web`, the product is a
+    real local app that discovery launches, inspects and captures; otherwise discovery runs on the
+    codebase only (recorded as such)."""
+    prod = helpers.make_web_product(tmp / "tallyboard", helpers.free_port()) if web else helpers.make_product(tmp / "tallyboard")
     ws = Workspace.at(prod / "promo")
     args = ["-w", str(ws.root), "init", "--product", str(prod), "--name", "Tallyboard", "--reference", reference_arg,
             "--audio", audio, "--formats", *formats]
@@ -64,7 +72,23 @@ def product(tmp: Path, *, audio: str, formats=("16:9",), reference_arg="none", r
     ws.brief.write_text(helpers.BRIEF)
     (ws.assets / "screenshots").mkdir(parents=True, exist_ok=True)
     shutil.copy(prod / "public" / "screenshots" / "dashboard.png", ws.assets / "screenshots" / "dashboard.png")
+    assert main(["-w", str(ws.root), "discover", "--no-mobile"] + ([] if web else ["--no-launch"])) == 0
     return ws
+
+
+def mean_rgb(path: Path, t: float, box=None) -> tuple[float, float, float]:
+    raw = reference._frame_at(path, t, 64, 36)
+    px = [tuple(raw[i:i + 3]) for i in range(0, len(raw), 3)]
+    if box:
+        x0, y0, x1, y1 = box
+        px = [p for k, p in enumerate(px) if x0 <= k % 64 < x1 and y0 <= k // 64 < y1]
+    return tuple(sum(c[j] for c in px) / len(px) / 255 for j in range(3))
+
+
+def has_colour(path: Path, t: float, hexv: str, tol: int = 40) -> bool:
+    raw = reference._frame_at(path, t, 480, 270)
+    want = tuple(int(hexv[i:i + 2], 16) for i in (1, 3, 5))
+    return any(all(abs(raw[i + j] - want[j]) <= tol for j in range(3)) for i in range(0, len(raw), 3))
 
 
 def voice_files(ws: Workspace, n: int) -> None:
@@ -84,14 +108,14 @@ class AutonomousFilm(unittest.TestCase):
     def setUpClass(cls):
         cls.tmp = Path(tempfile.mkdtemp(prefix="promo-e2e-a-"))
         cls.addClassCleanup(shutil.rmtree, cls.tmp, True)  # runs even if setUpClass fails
-        cls.ws = ws = product(cls.tmp, audio="effects")
+        cls.ws = ws = product(cls.tmp, audio="effects", web=True)
         w = ["-w", str(ws.root)]
         assert main(w + ["scan"]) == 0
         assert main(w + ["check", "brief"]) == 0
         assert main(w + ["adapt"]) == 0
         ws.creative.write_text(films.complete_creative_prompt(ws.creative.read_text()))
         assert main(w + ["check", "creative"]) == 0
-        ws.timeline.write_text(json.dumps(films.COMPACT, indent=2))
+        ws.timeline.write_text(json.dumps(films.with_real_screen(films.COMPACT, "web-reports"), indent=2))
         assert main(w + ["check", "timeline"]) == 0
         cls.code = main(w + ["build", "--quality", "draft"])
         cls.video = ws.out_dir / "promo-16x9-draft.mp4"
@@ -159,7 +183,8 @@ class AutonomousFilm(unittest.TestCase):
         m = read_json(d / "manifest.json")
         paths = {f["path"] for f in m["files"]}
         for want in ("videos/promo-16x9-draft.mp4", "CREATIVE_DIRECTION.md", "storyboard.md", "timeline.json",
-                     "TEST_REPORT.md", "validation.json", "remotion/"):
+                     "TEST_REPORT.md", "validation.json", "remotion/", "PRODUCT_ANALYSIS.md", "THEME_ANALYSIS.md",
+                     "THEME.json", "ASSET_INVENTORY.md", "SCREENSHOT_MANIFEST.json", "screenshots/web-reports.png"):
             self.assertIn(want, paths)
         video = next(f for f in m["files"] if f["path"].startswith("videos/"))
         import hashlib
@@ -168,7 +193,9 @@ class AutonomousFilm(unittest.TestCase):
         self.assertEqual(read_json(proj / "src" / "sample" / "render-config.json")["durationInFrames"],
                          self.rc["durationInFrames"])
         self.assertTrue((proj / "public" / "audio" / "master.wav").is_file())
-        self.assertTrue((proj / "public" / "assets" / "screenshots" / "dashboard.png").is_file())
+        self.assertTrue((proj / "public" / "assets" / "captured" / "web" / "reports-desktop.png").is_file())
+        self.assertTrue((proj / "public" / "fonts" / "product.ttf").is_file(), "the product's own font travels too")
+        self.assertTrue(next(f for f in m["files"] if f["path"] == "screenshots/web-reports.png")["usedInFilm"])
         (proj / "node_modules").symlink_to(RENDERER_DIR / "node_modules")  # skip a second npm ci
         tsc = subprocess.run(["npx", "tsc", "--noEmit"], cwd=proj, capture_output=True, text=True)
         self.assertEqual(tsc.returncode, 0, tsc.stdout + tsc.stderr)
@@ -178,6 +205,25 @@ class AutonomousFilm(unittest.TestCase):
         for cid in ("Promo16x9", "Promo9x16", "Promo1x1", "PromoStorePortrait", "PromoStoreLandscape"):
             self.assertIn(cid, comps.stdout)
         self.assertIn(str(self.rc["durationInFrames"]), comps.stdout, "the film's own length is the default")
+
+    def test_discovery_drove_the_film(self):
+        """The real app was launched and captured, and the film shows its screen in its theme."""
+        m = read_json(self.ws.screenshot_manifest)
+        self.assertEqual(m["web"]["status"], "captured")
+        shot = screenshots_by(m)["web-reports"]
+        self.assertTrue(shot["approved"] and shot["source"] == "captured")
+        sc = next(s for s in self.rc["scenes"] if s["kind"] == "screen")
+        self.assertEqual(sc["shots"], ["web-reports"])
+        self.assertEqual(sc["props"]["media"], "captured/web/reports-desktop.png")
+        th = read_json(self.ws.theme)["promo"]
+        self.assertEqual((self.rc["style"]["ground"], self.rc["style"]["accent"]), (th["ground"], th["accent"]))
+        mid = (sc["from"] + sc["durationInFrames"] * 0.6) / self.rc["fps"]
+        corner = mean_rgb(self.video, mid, (0, 0, 6, 4))
+        self.assertGreater(min(corner), 0.75, f"the light product's film stays light (corner {corner})")
+        self.assertTrue(has_colour(self.video, mid, "#1F8A70"), "the real screen's brand green is on screen")
+        for name in ("PRODUCT_ANALYSIS.md", "THEME_ANALYSIS.md", "ASSET_INVENTORY.md"):
+            self.assertTrue((self.ws.root / name).is_file())
+        self.assertIn("web-reports", self.ws.direction.read_text())
 
     def test_rendering_is_deterministic(self):
         again = self.tmp / "again.mp4"
@@ -241,7 +287,7 @@ class ReferenceFilm(unittest.TestCase):
         cls.addClassCleanup(shutil.rmtree, cls.tmp, True)  # runs even if setUpClass fails
         cls.ref = cls.tmp / "reference.mp4"
         helpers.make_reference(cls.ref, "slow")
-        cls.ws = ws = product(cls.tmp, audio="effects", reference_arg=str(cls.ref))
+        cls.ws = ws = product(cls.tmp, audio="effects", reference_arg=str(cls.ref), web=True)
         w = ["-w", str(ws.root)]
         cls.watch_code = main(w + ["watch", "--no-whisper"])
         assert main(w + ["direction"]) == 0
@@ -271,6 +317,23 @@ class ReferenceFilm(unittest.TestCase):
         self.assertEqual([r["measured"] for r in rows], ["dissolve", "wipe-left", "dip-black"])
         self.assertTrue(all(r["ok"] for r in rows), rows)
         self.assertEqual([r["observed"] for r in rows][1:], ["wipe-left", "dip-black"])
+
+    def test_the_product_theme_and_real_screens_carry_the_reference_structure(self):
+        """Reference: navy/orange/green/grey colour fields. Product: light, brand green. The film keeps
+        the reference's transitions and the product's look and screens."""
+        rc = read_json(self.ws.render_config)
+        th = read_json(self.ws.theme)
+        self.assertEqual(th["motion"]["source"], "reference/motion-spec.json")
+        self.assertEqual((rc["style"]["ground"], rc["style"]["accent"]), (th["promo"]["ground"], th["promo"]["accent"]))
+        screens = [s for s in rc["scenes"] if s.get("shots")]
+        self.assertTrue(screens, "the storyboard put real captured screens into reference scenes")
+        for s in screens:
+            self.assertTrue(all(x.startswith("web-") for x in s["shots"]))
+        self.assertEqual([s["transition"]["type"] for s in rc["scenes"][1:]], ["fade", "wipe", "dip"])
+        t = (screens[0]["from"] + screens[0]["durationInFrames"] * 0.6) / rc["fps"]
+        self.assertGreater(min(mean_rgb(self.video, t, (0, 0, 6, 4))), 0.75, "light product, light film")
+        self.assertTrue(has_colour(self.video, t, "#1F8A70"))
+        self.assertIn("SCREENSHOT MAPPING", self.ws.direction.read_text())
 
     def test_blind_analysis_of_the_film_recovers_the_reference_structure(self):
         """Analyse the finished film with no plan, as if it were a reference.
@@ -314,13 +377,16 @@ class StoreFormats(unittest.TestCase):
                 p = probe(video)
                 self.assertEqual((p["w"], p["h"]), (w, h), aspect)
                 self.assertIsNone(p["audio"], "silent mode")
-                # The device never touches the frame edges while the camera pushes in.
+                # The device never touches the frame edges while the camera pushes in: edge pixels stay
+                # the film's ground colour (light here: the product's theme is light).
+                g = read_json(ws.render_config)["style"]["ground"].lstrip("#")
+                ground = round(0.299 * int(g[0:2], 16) + 0.587 * int(g[2:4], 16) + 0.114 * int(g[4:6], 16))
                 for t in (0.6, 1.8, 3.2):
                     raw = subprocess.run(["ffmpeg", "-v", "error", "-ss", str(t), "-i", str(video), "-frames:v", "1",
                                           "-pix_fmt", "gray", "-f", "rawvideo", "-"], capture_output=True).stdout
                     self.assertEqual(len(raw), w * h)
-                    edge = max(max(raw[y * w + x] for x in (0, 1, 2, w - 3, w - 2, w - 1)) for y in range(0, h, 4))
-                    self.assertLess(edge, 60, f"{aspect} at {t}s: something bright touches the frame edge")
+                    edge = max(max(abs(raw[y * w + x] - ground) for x in (0, 1, 2, w - 3, w - 2, w - 1)) for y in range(0, h, 4))
+                    self.assertLess(edge, 45, f"{aspect} at {t}s: content touches the frame edge ({edge})")
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 

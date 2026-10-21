@@ -61,6 +61,9 @@ from `OPENROUTER_API_KEY` / `OPENAI_API_KEY` in your environment. Never paste on
 ```
 input ─▶ mode + audio policy {voiceover, soundEffects, music: false}
            │
+  discover ─▶ codebase + theme (tokens, fonts, UI) + the real app launched and captured
+           ─▶ PRODUCT_ANALYSIS.md, THEME_ANALYSIS.md, THEME.json, ASSET_INVENTORY.md, SCREENSHOT_MANIFEST.json
+           │
   repository ─▶ scan ─▶ product-brief.md (every claim cites a file)
   reference  ─▶ watch skill + measurement ─▶ reference/breakdown.json, contact sheets
                                           ─▶ CREATIVE_DIRECTION.md (20 fields per scene)
@@ -69,6 +72,14 @@ input ─▶ mode + audio policy {voiceover, soundEffects, music: false}
            │
   voice (if chosen) ─▶ synthesised effects (if chosen) ─▶ Remotion render ─▶ QA ─▶ deliver/
 ```
+
+**Both modes start from the real product.** `promo discover` reads the codebase and the product's
+design system: palette per light/dark mode, fonts, radii, shadows, and icon and motion libraries,
+each with its source. It launches the web app with its own safe dev script, checks every route
+(404s, login walls, runtime errors) and captures the screens that render. For mobile apps it builds
+and launches on its own simulator or a running emulator and follows the app's deep links. It then
+selects the strongest genuine screens. The film uses that theme and those screens: a light product
+gets a light film, and a reference never repaints the brand.
 
 **Mode B measures, it does not guess.** The engine decodes the reference. It finds every
 scene boundary and classifies each transition from the pixels: cut, dissolve, dip to black
@@ -99,6 +110,8 @@ Every step writes an inspectable file to `promo/` in your repository:
 ```text
 promo/
   promo.config.json   product-scan.json   product-brief.md   creative-prompt.md
+  PRODUCT_ANALYSIS.md  THEME_ANALYSIS.md  THEME.json  ASSET_INVENTORY.md  SCREENSHOT_MANIFEST.json
+  assets/captured/{web,mobile}/   assets/supplied/   assets/illustrations/
   reference/          (Mode B) breakdown.json  motion-spec.json  frames/  sheets/
   CREATIVE_DIRECTION.md   timeline.json   storyboard.md   narration.txt   render-config.json
   out/*.mp4           TEST_REPORT.md      qa/validation.json   qa/frames/
@@ -114,7 +127,9 @@ promo/
 | `doctor` | tools, renderer, `watch` skill, voice providers, disk |
 | `init` | records the reference (→ mode), audio, provider, formats, runtime, name |
 | `questions [--json]` | the opening questions still open |
-| `scan` · `capture` | product map · screenshots of the running product |
+| `discover [--no-launch] [--url] [--routes] [--no-mobile]` | the product-theme discovery stage (both modes) |
+| `select [--approve id] [--reject id --reason …]` | review the screenshot selection |
+| `scan` · `capture` | product map · ad-hoc screenshots of the running product |
 | `watch [--no-whisper] [--refresh]` | Mode B: run `watch`, measure the reference |
 | `direction` · `storyboard` | Mode B: scaffold CREATIVE_DIRECTION.md · reference-derived timeline |
 | `adapt` · `check <artifact>` | creative-prompt scaffold · validate brief / direction / creative / timeline |

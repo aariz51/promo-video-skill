@@ -177,7 +177,16 @@ def scaffold(ws: Workspace, *, force: bool = False) -> Path:
             lines.append(f"| {b['n']} | {_fmt(t)}–{_fmt(t + d)} | §4 {b['beat']} (keep when: {b['keep']}) "
                          f"| TODO | TODO | TODO | TODO | TODO | TODO |")
             t += d
-    lines += ["", "## MOTION & VISUAL SYSTEM", "", "TODO: ground, accent, type, depth, camera grammar, transitions.",
+    th = read_json(ws.theme) if ws.theme.exists() else None
+    theme_line = (f"Product theme (THEME.json): {th['original']['defaultMode']} interface, ground {th['promo']['ground']}, "
+                  f"ink {th['promo']['ink']}, accent {th['promo']['accent']}, type {th['promo']['fontHead']}. "
+                  if th else "")
+    shots = [x for x in (read_json(ws.screenshot_manifest).get("screenshots", []) if ws.screenshot_manifest.exists() else [])
+             if x.get("approved") and x["source"] != "illustration"]
+    lines += ["", "## MOTION & VISUAL SYSTEM", "",
+              theme_line + "TODO: depth, camera grammar, transitions, and any departure from the product theme (with why).",
+              "", "Real product screens available (use as `shot:<id>`): "
+              + (", ".join(f"{x['id']} ({x['screen']})" for x in shots) or "none — do not show invented UI"),
               "", "## SOUND DESIGN", "", "No background music. TODO: layers and where they fire.",
               "", "## NARRATION", "", "TODO: one sparse line per beat, and one sentence of voice direction.",
               "", "## ORIGINALITY", "",

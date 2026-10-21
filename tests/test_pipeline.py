@@ -48,6 +48,9 @@ class CommandDiscovery(unittest.TestCase):
         audio_q = flat.index("Would you like AI voice-over and professional sound effects?")
         self.assertLess(ref_q, audio_q)
         self.assertLess(md.index("Do you have a promotional video"), md.index("## Step 2"))
+        # Discovery comes before any reference direction or storyboard, in both modes.
+        self.assertLess(md.index('bin/promo" discover'), md.index('bin/promo" direction'))
+        self.assertLess(md.index('bin/promo" discover'), md.index('bin/promo" storyboard'))
         # The skill and the engine ask the same questions, word for word.
         self.assertIn(" ".join(questions.REFERENCE_Q.split()), flat)
         self.assertIn(" ".join(questions.AUDIO_Q.split()), flat)
@@ -61,16 +64,18 @@ class CommandDiscovery(unittest.TestCase):
         md = (SKILL / "SKILL.md").read_text()
         for needle in ("MASTER CREATIVE FRAMEWORK", "product-brief.md", "CREATIVE_DIRECTION.md",
                        "reference/breakdown.json", "creative-prompt.md", "timeline.json", "TEST_REPORT.md",
-                       "qa/validation.json", "promo/deliver/", "music: false", "--no-whisper"):
+                       "qa/validation.json", "promo/deliver/", "music: false", "--no-whisper", "PRODUCT_THEME_DISCOVERY",
+                       "PRODUCT_ANALYSIS.md", "THEME_ANALYSIS.md", "THEME.json", "ASSET_INVENTORY.md",
+                       "SCREENSHOT_MANIFEST.json", "shot:<id>", "assets/captured/web/"):
             self.assertIn(needle, md)
 
     def test_cli_exposes_the_pipeline(self):
-        for cmd in ("doctor", "init", "questions", "scan", "capture", "watch", "direction", "check", "adapt",
-                    "storyboard", "compile", "voice", "audio", "render", "qa", "build", "deliver", "status"):
+        for cmd in ("doctor", "init", "questions", "scan", "capture", "discover", "select", "watch", "direction", "check",
+                    "adapt", "storyboard", "compile", "voice", "audio", "render", "qa", "build", "deliver", "status"):
             self.assertIn(cmd, COMMANDS)
         self.assertEqual(build_parser().parse_args(["build", "--aspect", "9:16"]).aspect, ["9:16"])
         md = (SKILL / "SKILL.md").read_text()
-        for cmd in ("questions", "watch", "direction", "adapt", "storyboard", "build", "deliver"):
+        for cmd in ("questions", "discover", "select", "watch", "direction", "adapt", "storyboard", "build", "deliver"):
             self.assertIn(f'bin/promo" {cmd}', md, f"SKILL.md never runs `promo {cmd}`")
 
     def test_no_single_product_is_hard_coded(self):

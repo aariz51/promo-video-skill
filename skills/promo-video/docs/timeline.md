@@ -34,7 +34,7 @@ and turns it into `render-config.json`, `storyboard.md` and `narration.txt`.
 | `source` | `framework` (Mode A, no reference) or `reference` (Mode B). `inspiration` is read for v4 workspaces. |
 | `seed` | integer; every scattered or orbiting element is placed from it. Same seed, same film. |
 | `style.preset` | `graphite` (near-black, default) · `midnight` (deep blue-black) · `paper` (light) |
-| `style.accent` / `ground` / `ink` | optional `#rrggbb` overrides; use the product's own accent |
+| `style` | normally `{}`: the film's ground, ink, accent and type come from the product's `THEME.json` (written by `promo discover`). `accent` / `ground` / `ink` / `preset` that differ from it need `style.deviation` (the reason), or `check timeline` fails |
 | `narration.enabled` | `true` by default. `false` requires `narration.reason`. Ignored unless the audio mode is `voiceover`. |
 | `reference` | Mode B only, written by `promo storyboard`: `breakdown` path, `fingerprint`, `runtime`, `scale`, `dropped` (`[{ref, reason}]`), and `runtimeDeviation` (reason) if the runtime departs from the reference by more than 20%. |
 
@@ -46,7 +46,8 @@ and turns it into `render-config.json`, `storyboard.md` and `narration.txt`.
 | `kind` | yes | one of the primitives below |
 | `duration` | yes | seconds, 0.5–30 (fast references cut quicker than 1.5 s; a primitive still needs time for its own events) |
 | `purpose` | yes | the scene's job in the story (goes into the storyboard) |
-| `props` | yes | per kind, below. Media paths are relative to `promo/assets/`. |
+| `props` | yes | per kind, below. Product screens are `shot:<id>` (an approved, genuine entry in `SCREENSHOT_MANIFEST.json`); other media paths are relative to `promo/assets/`. A path into `captured/` or `supplied/` must be in the manifest. |
+| `illustrative` | when using an illustration | `true` lets the scene use an `illustration-*` manifest entry; an illustration never passes for a real screen |
 | `transition` | no | how this scene *enters*, played over its first frames. Default `fade` 0.5 s. See **Transitions**. |
 | `narration` | no | a string, or `{ "text", "offset" }` (seconds after scene start, default 0.4) |
 | `claims` | when showing facts | claim ids from `product-brief.md`. **Any digit on screen or in narration needs one.** |

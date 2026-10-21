@@ -43,6 +43,7 @@ def reference_env(profile: str) -> Env:
     reference.analyze(video, env.ws.reference_dir, source=str(video))
     env.ws.brief.write_text(helpers.BRIEF)
     write_json(env.ws.scan, analyzer.scan(env.product, exclude=env.ws.root))
+    helpers.discover_offline(env.ws)
     return env
 
 
@@ -69,6 +70,8 @@ def fill_timeline(tl: dict) -> dict:
         kind, props = ("lockup", {"name": "Tallyboard", "line": "Drop. Group. Export."}) \
             if i == len(tl["scenes"]) - 1 else BEATS[i % len(BEATS)]
         s["kind"], s["props"] = kind, json.loads(json.dumps(props))
+        if s.get("suggest") and i < len(tl["scenes"]) - 1:  # the storyboard proposed a real screen here
+            s["kind"], s["props"] = "screen", {"media": s["suggest"]["media"], "device": "browser", "camera": "push"}
         s["purpose"] = f"beat {i + 1}, following reference {s['ref']}"
         if kind == "compare":
             s["claims"] = ["C1", "C2"]
