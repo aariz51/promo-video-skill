@@ -1,0 +1,405 @@
+{
+  "version": 1,
+  "product": "promo-video",
+  "source": "framework",
+  "seed": 7,
+  "style": {
+    "preset": "graphite",
+    "accent": "#6E9BFF"
+  },
+  "narration": {
+    "enabled": true
+  },
+  "scenes": [
+    {
+      "id": "hook",
+      "kind": "hook",
+      "duration": 8,
+      "source": "framework §4 beat 1",
+      "purpose": "visual mystery: fragments of a repository orbit a point of light, then freeze",
+      "props": {
+        "line": "What if your repository could direct its own launch film?",
+        "accent": [
+          "repository"
+        ],
+        "fragments": [
+          "package.json",
+          "README.md",
+          "src/routes",
+          "SKILL.md",
+          "tokens.css",
+          "tests/",
+          "npm run dev",
+          "screens/",
+          "CHANGELOG.md",
+          "docs/",
+          "timeline.json",
+          "claims"
+        ]
+      },
+      "narration": {
+        "text": "Every product already holds its story.",
+        "offset": 5.3
+      }
+    },
+    {
+      "id": "title",
+      "kind": "title",
+      "duration": 5,
+      "source": "framework §4 beat 2",
+      "claims": [
+        "C14"
+      ],
+      "purpose": "the name lands in silence",
+      "transition": {
+        "type": "light",
+        "duration": 0.8
+      },
+      "props": {
+        "name": "promo-video",
+        "tagline": "An agent skill that turns a repository into a launch film."
+      }
+    },
+    {
+      "id": "shape",
+      "kind": "pillars",
+      "duration": 7,
+      "source": "framework §4 beat 3",
+      "purpose": "the shape of the product: understand, direct, verify",
+      "props": {
+        "items": [
+          {
+            "title": "Understand",
+            "detail": "the product, from its own code"
+          },
+          {
+            "title": "Direct",
+            "detail": "a brief from a framework or a film you admire"
+          },
+          {
+            "title": "Verify",
+            "detail": "facts, timing, sound and the final file"
+          }
+        ],
+        "focus": 2
+      },
+      "narration": {
+        "text": "It reads your code, directs the film, and checks its own work.",
+        "offset": 0.6
+      }
+    },
+    {
+      "id": "scan",
+      "kind": "terminal",
+      "duration": 10,
+      "source": "framework §4 beat 4",
+      "claims": [
+        "C2"
+      ],
+      "purpose": "proof: the real scan of this repository",
+      "transition": {
+        "type": "push",
+        "duration": 0.6
+      },
+      "props": {
+        "title": "promo-video",
+        "lines": [
+          {
+            "type": "cmd",
+            "text": "promo init --inspiration none"
+          },
+          {
+            "type": "out",
+            "text": "Workflow: master creative framework (no inspiration)"
+          },
+          {
+            "type": "cmd",
+            "text": "promo scan"
+          },
+          {
+            "type": "out",
+            "text": "Type: agent-skill · frameworks: React, Remotion"
+          },
+          {
+            "type": "out",
+            "text": "Routes: 0 · screens: 1 · skills: 1 · tests: 2"
+          },
+          {
+            "type": "out",
+            "text": "Launch: npm run dev http://localhost:3000"
+          },
+          {
+            "type": "dim",
+            "text": "Not read (secret-like names): 1 file(s)"
+          },
+          {
+            "type": "ok",
+            "text": "Wrote product-scan.json"
+          }
+        ],
+        "caption": "It starts with what the code can prove."
+      },
+      "narration": {
+        "text": "It starts with what your repository can prove.",
+        "offset": 5.2
+      }
+    },
+    {
+      "id": "brief",
+      "kind": "document",
+      "duration": 13,
+      "source": "framework §4 beat 5 · §6",
+      "claims": [
+        "C1",
+        "C3",
+        "C4"
+      ],
+      "purpose": "hero demonstration, part one: the brief assembles, every claim citing a file",
+      "props": {
+        "title": "product-brief.md",
+        "source": "examples/self-promo",
+        "sections": [
+          {
+            "heading": "Product",
+            "lines": [
+              "An agent skill that directs a launch film",
+              "from the product's own repository."
+            ]
+          },
+          {
+            "heading": "Value proposition",
+            "lines": [
+              "Understand · Direct · Verify"
+            ]
+          },
+          {
+            "heading": "Factual claims",
+            "lines": [
+              "C1  One question: an inspiration video?  SKILL.md:58",
+              "C3  A missing source fails the check  artifacts.py:217",
+              "C4  Numbers need a claim id  timeline.py:256"
+            ]
+          },
+          {
+            "heading": "Restrictions",
+            "lines": [
+              "No users, ratings or speed claims.",
+              "No background music."
+            ]
+          }
+        ],
+        "caption": "Every claim cites the file behind it."
+      },
+      "narration": {
+        "text": "Every claim in the brief cites the file behind it.",
+        "offset": 7.0
+      }
+    },
+    {
+      "id": "pipeline",
+      "kind": "flow",
+      "duration": 12,
+      "source": "framework §4 beats 5–6",
+      "claims": [
+        "C5",
+        "C10",
+        "C12"
+      ],
+      "purpose": "hero demonstration, part two: inspiration becomes an original film",
+      "transition": {
+        "type": "push",
+        "duration": 0.6
+      },
+      "props": {
+        "title": "Inspiration in. An original film out.",
+        "steps": [
+          {
+            "label": "Inspiration video",
+            "kind": "input",
+            "lines": [
+              "frames + transcript via watch",
+              "every hard cut measured"
+            ]
+          },
+          {
+            "label": "Inspirational prompt",
+            "lines": [
+              "12 sections",
+              "10–20 creative rules"
+            ]
+          },
+          {
+            "label": "Product-specific prompt",
+            "lines": [
+              "structure from the film",
+              "facts from the brief"
+            ]
+          },
+          {
+            "label": "Original film",
+            "kind": "result",
+            "lines": [
+              "timeline → render → QA"
+            ]
+          }
+        ]
+      },
+      "narration": {
+        "text": "Give it a film you admire. It borrows the grammar, never the footage.",
+        "offset": 3.4
+      }
+    },
+    {
+      "id": "refuse",
+      "kind": "terminal",
+      "duration": 9,
+      "source": "framework §4 beat 7",
+      "claims": [
+        "C4"
+      ],
+      "purpose": "unexpected capability: it refuses an unsourced number",
+      "transition": {
+        "type": "wipe",
+        "duration": 0.5
+      },
+      "props": {
+        "title": "promo-video",
+        "lines": [
+          {
+            "type": "dim",
+            "text": "# timeline.json: \"Reports in 3 seconds.\""
+          },
+          {
+            "type": "cmd",
+            "text": "promo check timeline"
+          },
+          {
+            "type": "out",
+            "text": "[error] scene 'trust': shows or says a number"
+          },
+          {
+            "type": "out",
+            "text": "        without citing a claim id (numbers need sources)"
+          },
+          {
+            "type": "out",
+            "text": "1 error(s). Fix them and re-run."
+          }
+        ],
+        "caption": "It refuses to invent."
+      },
+      "narration": {
+        "text": "When a fact has no source, it stops.",
+        "offset": 4.2
+      }
+    },
+    {
+      "id": "paths",
+      "kind": "compare",
+      "duration": 7,
+      "source": "framework §4 beat 9",
+      "claims": [
+        "C3",
+        "C13"
+      ],
+      "purpose": "two paths: a manual process versus a pipeline that leaves readable files",
+      "props": {
+        "left": {
+          "title": "By hand",
+          "items": [
+            "Read the codebase",
+            "Write a brief",
+            "Storyboard and cut",
+            "Check every frame"
+          ]
+        },
+        "right": {
+          "title": "/promo-video",
+          "items": [
+            "product-scan.json",
+            "product-brief.md",
+            "timeline.json",
+            "qa-report.md + stills"
+          ]
+        },
+        "verdict": "Every step leaves a file you can read."
+      }
+    },
+    {
+      "id": "formats",
+      "kind": "montage",
+      "duration": 7,
+      "source": "framework §4 beat 12",
+      "claims": [
+        "C7"
+      ],
+      "purpose": "one timeline, three formats: real stills of this film's pipeline scene",
+      "props": {
+        "title": "One timeline. Every format.",
+        "layout": "row",
+        "items": [
+          {
+            "media": "formats/pipeline-16x9.png",
+            "label": "16:9 · 1920 × 1080"
+          },
+          {
+            "media": "formats/pipeline-9x16.png",
+            "label": "9:16"
+          },
+          {
+            "media": "formats/pipeline-1x1.png",
+            "label": "1:1"
+          }
+        ]
+      },
+      "narration": {
+        "text": "One timeline renders every format.",
+        "offset": 0.8
+      }
+    },
+    {
+      "id": "silence",
+      "kind": "statement",
+      "duration": 7,
+      "source": "framework §10 · §4 beat 12",
+      "claims": [
+        "C8"
+      ],
+      "purpose": "trust: no background music, and how that is proven",
+      "transition": {
+        "type": "light",
+        "duration": 0.8
+      },
+      "props": {
+        "eyebrow": "Sound",
+        "text": "No background music.",
+        "accent": [
+          "No"
+        ],
+        "size": "xl",
+        "small": "Effects tied to the picture, and a voice. QA measures the silence between them."
+      }
+    },
+    {
+      "id": "lockup",
+      "kind": "lockup",
+      "duration": 8,
+      "source": "framework §4 beat 13",
+      "claims": [
+        "C1",
+        "C14"
+      ],
+      "purpose": "the light returns; the name; the three ideas; the command",
+      "props": {
+        "name": "promo-video",
+        "line": "Understand. Direct. Verify.",
+        "cta": "/promo-video",
+        "small": "Open source · MIT"
+      },
+      "narration": {
+        "text": "Point it at your repository.",
+        "offset": 2.4
+      }
+    }
+  ]
+}

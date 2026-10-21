@@ -1,0 +1,967 @@
+{
+  "version": 1,
+  "product": "promo-video",
+  "source": "inspiration",
+  "seed": 11,
+  "fps": 30,
+  "durationInFrames": 2010,
+  "duration": 67.0,
+  "compositions": [
+    {
+      "aspect": "16:9",
+      "id": "Promo16x9",
+      "width": 1920,
+      "height": 1080
+    }
+  ],
+  "quality": {
+    "name": "final",
+    "crf": 18,
+    "scale": 1.0
+  },
+  "style": {
+    "ground": "#F6F4EF",
+    "ground2": "#ECE9E1",
+    "ink": "#16171A",
+    "inkSoft": "#6B6E76",
+    "accent": "#2F5BFF",
+    "line": "#D9D5CB",
+    "dark": false,
+    "preset": "paper",
+    "fontHead": "Inter"
+  },
+  "scenes": [
+    {
+      "id": "hook",
+      "kind": "wordzoom",
+      "purpose": "smallest-scale opening; the product's gesture is the edit; arrive in the brand ground",
+      "source": "R1 R2 R3",
+      "from": 0,
+      "durationInFrames": 270,
+      "transition": {
+        "type": "none",
+        "frames": 0
+      },
+      "props": {
+        "line": "a skill that reads your repository",
+        "then": "and directs its launch film",
+        "word": "launch",
+        "name": "promo-video",
+        "_t": {
+          "typeFor": 1.55,
+          "then": 2.75,
+          "cursors": 1.23,
+          "select": 3.65,
+          "zoom": [
+            4.35,
+            5.65
+          ],
+          "name": 5.95
+        }
+      },
+      "claims": []
+    },
+    {
+      "id": "input",
+      "kind": "terminal",
+      "purpose": "input before output: the repository, plus an optional film",
+      "source": "R5",
+      "from": 270,
+      "durationInFrames": 270,
+      "transition": {
+        "type": "push",
+        "frames": 18
+      },
+      "props": {
+        "title": "your-product",
+        "lines": [
+          {
+            "type": "cmd",
+            "text": "promo init --inspiration https://youtu.be/…"
+          },
+          {
+            "type": "cmd",
+            "text": "promo watch https://youtu.be/…"
+          },
+          {
+            "type": "out",
+            "text": "0:26.7 · 23 frames · 2 cuts (avg shot 8.89 s)"
+          },
+          {
+            "type": "out",
+            "text": "transcript: yes, 12 lines"
+          },
+          {
+            "type": "ok",
+            "text": "Evidence: inspiration/evidence.json"
+          }
+        ],
+        "caption": "Your code. A film you admire, if you have one.",
+        "_t": {
+          "lines": [
+            {
+              "type": "cmd",
+              "at": 0.5,
+              "typeFor": 1.54
+            },
+            {
+              "type": "cmd",
+              "at": 2.39,
+              "typeFor": 1.07
+            },
+            {
+              "type": "out",
+              "at": 3.81
+            },
+            {
+              "type": "out",
+              "at": 4.09
+            },
+            {
+              "type": "ok",
+              "at": 4.37
+            }
+          ]
+        }
+      },
+      "claims": [
+        "C5"
+      ]
+    },
+    {
+      "id": "analysis",
+      "kind": "document",
+      "purpose": "output in its real environment: the inspiration prompt writing itself",
+      "source": "R6",
+      "from": 540,
+      "durationInFrames": 300,
+      "transition": {
+        "type": "push",
+        "frames": 18
+      },
+      "props": {
+        "title": "inspiration-analysis.md",
+        "source": "YOUTUBE INSPIRATIONAL PROMPT",
+        "sections": [
+          {
+            "heading": "Hook analysis",
+            "lines": [
+              "0:00–0:05  a small line, selected, flown through"
+            ]
+          },
+          {
+            "heading": "Pacing",
+            "lines": [
+              "2 hard cuts · 8.9 s average shot"
+            ]
+          },
+          {
+            "heading": "Reusable creative rules",
+            "lines": [
+              "R1   Open at the smallest scale",
+              "R4   Cut only on turns in the argument",
+              "R14  Every motion is a user's gesture"
+            ]
+          }
+        ],
+        "caption": "Watched, frame by frame.",
+        "_t": {
+          "sections": [
+            0.8,
+            3.3,
+            5.8
+          ]
+        }
+      },
+      "claims": [
+        "C5",
+        "C10"
+      ]
+    },
+    {
+      "id": "not-a-template",
+      "kind": "compare",
+      "purpose": "the turn: an inspiration is not a template, shown as a diagram",
+      "source": "R7 R4",
+      "from": 840,
+      "durationInFrames": 270,
+      "transition": {
+        "type": "cut",
+        "frames": 0
+      },
+      "props": {
+        "title": "An inspiration is not a template.",
+        "left": {
+          "title": "Never copied",
+          "items": [
+            "Its footage",
+            "Its words",
+            "Its logo"
+          ]
+        },
+        "right": {
+          "title": "Borrowed",
+          "items": [
+            "Pacing",
+            "Transitions",
+            "Rhythm of type"
+          ]
+        },
+        "verdict": "The grammar travels. The footage stays.",
+        "_t": {
+          "left": 0.4,
+          "right": 1.3,
+          "verdict": 6.8
+        }
+      },
+      "claims": [
+        "C6"
+      ]
+    },
+    {
+      "id": "difference",
+      "kind": "flow",
+      "purpose": "the difference: the film's structure, your product's facts",
+      "source": "R8 intent R14",
+      "from": 1110,
+      "durationInFrames": 300,
+      "transition": {
+        "type": "push",
+        "frames": 18
+      },
+      "props": {
+        "title": "Structure from the film. Facts from the repo.",
+        "steps": [
+          {
+            "label": "Inspirational prompt",
+            "kind": "input",
+            "lines": [
+              "rules with timestamps"
+            ]
+          },
+          {
+            "label": "Product brief",
+            "kind": "input",
+            "lines": [
+              "claims with sources"
+            ]
+          },
+          {
+            "label": "Product-specific prompt",
+            "lines": [
+              "scenes rescaled to the runtime"
+            ]
+          },
+          {
+            "label": "Original film",
+            "kind": "result",
+            "lines": [
+              "this one"
+            ]
+          }
+        ],
+        "_t": {
+          "steps": [
+            0.5,
+            3.1,
+            5.7,
+            8.3
+          ]
+        }
+      },
+      "claims": [
+        "C3",
+        "C12"
+      ]
+    },
+    {
+      "id": "range",
+      "kind": "montage",
+      "purpose": "range once: a wall of real frames from this product's other film",
+      "source": "R10 R4",
+      "from": 1410,
+      "durationInFrames": 210,
+      "transition": {
+        "type": "cut",
+        "frames": 0
+      },
+      "props": {
+        "title": "Its other film, from the master framework.",
+        "layout": "grid",
+        "items": [
+          {
+            "media": "film/02-title.jpg"
+          },
+          {
+            "media": "film/03-shape.jpg"
+          },
+          {
+            "media": "film/04-scan.jpg"
+          },
+          {
+            "media": "film/05-brief.jpg"
+          },
+          {
+            "media": "film/07-refuse.jpg"
+          },
+          {
+            "media": "film/10-silence.jpg"
+          }
+        ],
+        "_t": {
+          "items": [
+            0.3,
+            0.44,
+            0.58,
+            0.72,
+            0.86,
+            1.0
+          ]
+        },
+        "_media": {
+          "film/02-title.jpg": 1.77778,
+          "film/03-shape.jpg": 1.77778,
+          "film/04-scan.jpg": 1.77778,
+          "film/05-brief.jpg": 1.77778,
+          "film/07-refuse.jpg": 1.77778,
+          "film/10-silence.jpg": 1.77778
+        }
+      },
+      "claims": [
+        "C11"
+      ]
+    },
+    {
+      "id": "proof",
+      "kind": "screen",
+      "purpose": "end on proof: push into one finished frame",
+      "source": "R11 R13",
+      "from": 1620,
+      "durationInFrames": 180,
+      "transition": {
+        "type": "zoom",
+        "frames": 18
+      },
+      "props": {
+        "media": "film/pipeline.png",
+        "device": "none",
+        "camera": "push",
+        "focus": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "_t": {
+          "callouts": []
+        },
+        "_media": {
+          "film/pipeline.png": 1.77778
+        }
+      },
+      "claims": [
+        "C13"
+      ]
+    },
+    {
+      "id": "lockup",
+      "kind": "lockup",
+      "purpose": "the name alone; the line; the command",
+      "source": "R11",
+      "from": 1800,
+      "durationInFrames": 210,
+      "transition": {
+        "type": "fade",
+        "frames": 18
+      },
+      "props": {
+        "name": "promo-video",
+        "line": "Borrow the grammar. Keep your own story.",
+        "cta": "/promo-video",
+        "small": "Open source · MIT",
+        "_t": {
+          "logo": 0.3,
+          "name": 0.8,
+          "line": 1.9,
+          "cta": 3.0
+        }
+      },
+      "claims": [
+        "C1"
+      ]
+    }
+  ],
+  "narration": {
+    "enabled": true,
+    "reason": null,
+    "lines": [
+      {
+        "at": 0.6,
+        "text": "It reads your repository, and directs its launch film.",
+        "scene": "hook",
+        "windowEnd": 9.4
+      },
+      {
+        "at": 12.6,
+        "text": "Point it at your code. Add a film you admire, if you have one.",
+        "scene": "input",
+        "windowEnd": 18.4
+      },
+      {
+        "at": 21.4,
+        "text": "It watches that film frame by frame, and writes down how it was made.",
+        "scene": "analysis",
+        "windowEnd": 28.4
+      },
+      {
+        "at": 30.6,
+        "text": "Copy seven words from it, and the check fails.",
+        "scene": "not-a-template",
+        "windowEnd": 37.4
+      },
+      {
+        "at": 39.4,
+        "text": "Its structure, rescaled to your story. Every fact, from your repository.",
+        "scene": "difference",
+        "windowEnd": 47.4
+      },
+      {
+        "at": 62.2,
+        "text": "Borrow the grammar. Keep your own story.",
+        "scene": "lockup",
+        "windowEnd": 67.4
+      }
+    ]
+  },
+  "sound": {
+    "cues": [
+      {
+        "fx": "type",
+        "at": 0.3,
+        "vol": 0.55,
+        "scene": "hook",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 0.391,
+        "vol": 0.55,
+        "scene": "hook",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 0.482,
+        "vol": 0.55,
+        "scene": "hook",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 0.574,
+        "vol": 0.55,
+        "scene": "hook",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 0.665,
+        "vol": 0.55,
+        "scene": "hook",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 0.756,
+        "vol": 0.55,
+        "scene": "hook",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 0.847,
+        "vol": 0.55,
+        "scene": "hook",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 0.938,
+        "vol": 0.55,
+        "scene": "hook",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 1.029,
+        "vol": 0.55,
+        "scene": "hook",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 1.121,
+        "vol": 0.55,
+        "scene": "hook",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 1.212,
+        "vol": 0.55,
+        "scene": "hook",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 1.303,
+        "vol": 0.55,
+        "scene": "hook",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 1.394,
+        "vol": 0.55,
+        "scene": "hook",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 1.485,
+        "vol": 0.55,
+        "scene": "hook",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 1.576,
+        "vol": 0.55,
+        "scene": "hook",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 1.668,
+        "vol": 0.55,
+        "scene": "hook",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 1.759,
+        "vol": 0.55,
+        "scene": "hook",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 2.75,
+        "vol": 0.55,
+        "scene": "hook",
+        "why": "retype"
+      },
+      {
+        "fx": "type",
+        "at": 2.83,
+        "vol": 0.55,
+        "scene": "hook",
+        "why": "retype"
+      },
+      {
+        "fx": "type",
+        "at": 2.91,
+        "vol": 0.55,
+        "scene": "hook",
+        "why": "retype"
+      },
+      {
+        "fx": "type",
+        "at": 2.99,
+        "vol": 0.55,
+        "scene": "hook",
+        "why": "retype"
+      },
+      {
+        "fx": "type",
+        "at": 3.07,
+        "vol": 0.55,
+        "scene": "hook",
+        "why": "retype"
+      },
+      {
+        "fx": "type",
+        "at": 3.15,
+        "vol": 0.55,
+        "scene": "hook",
+        "why": "retype"
+      },
+      {
+        "fx": "click",
+        "at": 3.65,
+        "vol": 0.7,
+        "scene": "hook",
+        "why": "the word is selected"
+      },
+      {
+        "fx": "whoosh",
+        "at": 4.65,
+        "vol": 0.55,
+        "scene": "hook",
+        "why": "fly through the letter"
+      },
+      {
+        "fx": "thud",
+        "at": 5.65,
+        "vol": 0.6,
+        "scene": "hook",
+        "why": "arrive on the ground"
+      },
+      {
+        "fx": "whoosh",
+        "at": 8.8,
+        "vol": 0.5,
+        "scene": "input",
+        "why": "push transition"
+      },
+      {
+        "fx": "type",
+        "at": 9.5,
+        "vol": 0.55,
+        "scene": "input",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 9.591,
+        "vol": 0.55,
+        "scene": "input",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 9.681,
+        "vol": 0.55,
+        "scene": "input",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 9.772,
+        "vol": 0.55,
+        "scene": "input",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 9.862,
+        "vol": 0.55,
+        "scene": "input",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 9.953,
+        "vol": 0.55,
+        "scene": "input",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 10.044,
+        "vol": 0.55,
+        "scene": "input",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 10.134,
+        "vol": 0.55,
+        "scene": "input",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 10.225,
+        "vol": 0.55,
+        "scene": "input",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 10.315,
+        "vol": 0.55,
+        "scene": "input",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 10.406,
+        "vol": 0.55,
+        "scene": "input",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 10.496,
+        "vol": 0.55,
+        "scene": "input",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 10.587,
+        "vol": 0.55,
+        "scene": "input",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 10.678,
+        "vol": 0.55,
+        "scene": "input",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 10.768,
+        "vol": 0.55,
+        "scene": "input",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 10.859,
+        "vol": 0.55,
+        "scene": "input",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 10.949,
+        "vol": 0.55,
+        "scene": "input",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 11.39,
+        "vol": 0.55,
+        "scene": "input",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 11.487,
+        "vol": 0.55,
+        "scene": "input",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 11.585,
+        "vol": 0.55,
+        "scene": "input",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 11.682,
+        "vol": 0.55,
+        "scene": "input",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 11.779,
+        "vol": 0.55,
+        "scene": "input",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 11.876,
+        "vol": 0.55,
+        "scene": "input",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 11.974,
+        "vol": 0.55,
+        "scene": "input",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 12.071,
+        "vol": 0.55,
+        "scene": "input",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 12.168,
+        "vol": 0.55,
+        "scene": "input",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 12.265,
+        "vol": 0.55,
+        "scene": "input",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 12.363,
+        "vol": 0.55,
+        "scene": "input",
+        "why": "keystroke"
+      },
+      {
+        "fx": "tick2",
+        "at": 12.81,
+        "vol": 0.35,
+        "scene": "input",
+        "why": "output line"
+      },
+      {
+        "fx": "tick2",
+        "at": 13.09,
+        "vol": 0.35,
+        "scene": "input",
+        "why": "output line"
+      },
+      {
+        "fx": "chime",
+        "at": 13.37,
+        "vol": 0.45,
+        "scene": "input",
+        "why": "success line"
+      },
+      {
+        "fx": "whoosh",
+        "at": 17.8,
+        "vol": 0.5,
+        "scene": "analysis",
+        "why": "push transition"
+      },
+      {
+        "fx": "tick",
+        "at": 18.8,
+        "vol": 0.4,
+        "scene": "analysis",
+        "why": "section writes in"
+      },
+      {
+        "fx": "tick",
+        "at": 21.3,
+        "vol": 0.4,
+        "scene": "analysis",
+        "why": "section writes in"
+      },
+      {
+        "fx": "tick",
+        "at": 23.8,
+        "vol": 0.4,
+        "scene": "analysis",
+        "why": "section writes in"
+      },
+      {
+        "fx": "pop",
+        "at": 28.4,
+        "vol": 0.6,
+        "scene": "not-a-template",
+        "why": "first path"
+      },
+      {
+        "fx": "pop",
+        "at": 29.3,
+        "vol": 0.6,
+        "scene": "not-a-template",
+        "why": "second path"
+      },
+      {
+        "fx": "chime",
+        "at": 34.8,
+        "vol": 0.5,
+        "scene": "not-a-template",
+        "why": "verdict"
+      },
+      {
+        "fx": "whoosh",
+        "at": 36.8,
+        "vol": 0.5,
+        "scene": "difference",
+        "why": "push transition"
+      },
+      {
+        "fx": "pop",
+        "at": 37.5,
+        "vol": 0.6,
+        "scene": "difference",
+        "why": "step activates"
+      },
+      {
+        "fx": "pop",
+        "at": 40.1,
+        "vol": 0.6,
+        "scene": "difference",
+        "why": "step activates"
+      },
+      {
+        "fx": "pop",
+        "at": 42.7,
+        "vol": 0.6,
+        "scene": "difference",
+        "why": "step activates"
+      },
+      {
+        "fx": "chime",
+        "at": 45.3,
+        "vol": 0.6,
+        "scene": "difference",
+        "why": "result resolves"
+      },
+      {
+        "fx": "drag",
+        "at": 47.3,
+        "vol": 0.5,
+        "scene": "range",
+        "why": "cards fan out"
+      },
+      {
+        "fx": "whoosh",
+        "at": 53.8,
+        "vol": 0.5,
+        "scene": "proof",
+        "why": "zoom transition"
+      },
+      {
+        "fx": "whoosh",
+        "at": 54.05,
+        "vol": 0.3,
+        "scene": "proof",
+        "why": "camera move"
+      },
+      {
+        "fx": "ascent",
+        "at": 60.4,
+        "vol": 0.3,
+        "scene": "lockup",
+        "why": "final resolve"
+      },
+      {
+        "fx": "sparkle",
+        "at": 60.8,
+        "vol": 0.4,
+        "scene": "lockup",
+        "why": "name resolves"
+      }
+    ],
+    "ambience": false
+  },
+  "audio": {
+    "src": null
+  }
+}

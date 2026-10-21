@@ -1,0 +1,469 @@
+{
+  "root": "../..",
+  "fileCount": 158,
+  "projectType": "agent-skill",
+  "frameworks": [
+    "React",
+    "Remotion"
+  ],
+  "languages": {
+    ".tsx": 28,
+    ".py": 19,
+    ".md": 17,
+    ".json": 9,
+    ".ts": 8,
+    ".yml": 4,
+    ".txt": 1
+  },
+  "manifests": {
+    "skills/promo-video/renderer/package.json": {
+      "type": "npm",
+      "name": "promo-video-renderer",
+      "description": "Data-driven Remotion renderer for the /promo-video skill",
+      "version": "4.0.0",
+      "bin": null,
+      "dependencies": [
+        "@remotion/cli",
+        "@types/react",
+        "@types/web",
+        "cube-motion",
+        "prettier",
+        "react",
+        "react-dom",
+        "remotion",
+        "typescript"
+      ]
+    }
+  },
+  "readme": {
+    "path": "README.md",
+    "title": "promo-video",
+    "intro": "**An agent skill that turns your repository into a cinematic product film.**",
+    "headings": [
+      "promo-video"
+    ],
+    "codeCommands": []
+  },
+  "docs": [
+    "CONTRIBUTING.md"
+  ],
+  "skills": [
+    {
+      "path": "skills/promo-video/SKILL.md",
+      "name": "promo-video",
+      "description": "Make a cinematic launch/promo film for the product in the current repository. The skill inspects the codebase, optionally watches a YouTube video for creative inspiration (via the claude-video `watch` skill), turns both into a product-specific creative prompt, and renders an original 1920×1080 film with Remotion: real product moments, sparse voiceover, mapped sound design, no background music, aut",
+      "userInvocable": true
+    }
+  ],
+  "routes": [],
+  "screens": [
+    "skills/promo-video/renderer/src/scenes/Screen.tsx"
+  ],
+  "launch": {
+    "command": "npm run dev",
+    "cwd": "skills/promo-video/renderer",
+    "script": "remotion studio",
+    "url": "http://localhost:3000",
+    "source": "skills/promo-video/renderer/package.json"
+  },
+  "assets": {
+    "logos": [],
+    "screenshots": [],
+    "images": [
+      {
+        "path": "examples/self-promo/assets/formats/pipeline-16x9.png",
+        "size": [
+          960,
+          540
+        ],
+        "bytes": 636833,
+        "role": "image"
+      },
+      {
+        "path": "examples/self-promo/assets/formats/pipeline-1x1.png",
+        "size": [
+          540,
+          540
+        ],
+        "bytes": 377096,
+        "role": "image"
+      },
+      {
+        "path": "examples/self-promo/assets/formats/pipeline-9x16.png",
+        "size": [
+          540,
+          960
+        ],
+        "bytes": 623738,
+        "role": "image"
+      },
+      {
+        "path": "examples/self-promo/qa/frames/16x9/01-hook-a.jpg",
+        "size": [
+          960,
+          540
+        ],
+        "bytes": 10398,
+        "role": "image"
+      },
+      {
+        "path": "examples/self-promo/qa/frames/16x9/01-hook-b.jpg",
+        "size": [
+          960,
+          540
+        ],
+        "bytes": 20019,
+        "role": "image"
+      },
+      {
+        "path": "examples/self-promo/qa/frames/16x9/02-title-a.jpg",
+        "size": [
+          960,
+          540
+        ],
+        "bytes": 17494,
+        "role": "image"
+      },
+      {
+        "path": "examples/self-promo/qa/frames/16x9/02-title-b.jpg",
+        "size": [
+          960,
+          540
+        ],
+        "bytes": 18552,
+        "role": "image"
+      },
+      {
+        "path": "examples/self-promo/qa/frames/16x9/03-shape-a.jpg",
+        "size": [
+          960,
+          540
+        ],
+        "bytes": 12827,
+        "role": "image"
+      },
+      {
+        "path": "examples/self-promo/qa/frames/16x9/03-shape-b.jpg",
+        "size": [
+          960,
+          540
+        ],
+        "bytes": 12975,
+        "role": "image"
+      },
+      {
+        "path": "examples/self-promo/qa/frames/16x9/04-scan-a.jpg",
+        "size": [
+          960,
+          540
+        ],
+        "bytes": 29387,
+        "role": "image"
+      },
+      {
+        "path": "examples/self-promo/qa/frames/16x9/04-scan-b.jpg",
+        "size": [
+          960,
+          540
+        ],
+        "bytes": 28628,
+        "role": "image"
+      },
+      {
+        "path": "examples/self-promo/qa/frames/16x9/05-brief-a.jpg",
+        "size": [
+          960,
+          540
+        ],
+        "bytes": 18440,
+        "role": "image"
+      },
+      {
+        "path": "examples/self-promo/qa/frames/16x9/05-brief-b.jpg",
+        "size": [
+          960,
+          540
+        ],
+        "bytes": 27496,
+        "role": "image"
+      },
+      {
+        "path": "examples/self-promo/qa/frames/16x9/06-pipeline-a.jpg",
+        "size": [
+          960,
+          540
+        ],
+        "bytes": 24750,
+        "role": "image"
+      },
+      {
+        "path": "examples/self-promo/qa/frames/16x9/06-pipeline-b.jpg",
+        "size": [
+          960,
+          540
+        ],
+        "bytes": 29832,
+        "role": "image"
+      },
+      {
+        "path": "examples/self-promo/qa/frames/16x9/07-refuse-a.jpg",
+        "size": [
+          960,
+          540
+        ],
+        "bytes": 20019,
+        "role": "image"
+      },
+      {
+        "path": "examples/self-promo/qa/frames/16x9/07-refuse-b.jpg",
+        "size": [
+          960,
+          540
+        ],
+        "bytes": 20399,
+        "role": "image"
+      },
+      {
+        "path": "examples/self-promo/qa/frames/16x9/08-paths-a.jpg",
+        "size": [
+          960,
+          540
+        ],
+        "bytes": 18186,
+        "role": "image"
+      },
+      {
+        "path": "examples/self-promo/qa/frames/16x9/08-paths-b.jpg",
+        "size": [
+          960,
+          540
+        ],
+        "bytes": 21567,
+        "role": "image"
+      },
+      {
+        "path": "examples/self-promo/qa/frames/16x9/09-formats-a.jpg",
+        "size": [
+          960,
+          540
+        ],
+        "bytes": 26818,
+        "role": "image"
+      },
+      {
+        "path": "examples/self-promo/qa/frames/16x9/09-formats-b.jpg",
+        "size": [
+          960,
+          540
+        ],
+        "bytes": 28554,
+        "role": "image"
+      },
+      {
+        "path": "examples/self-promo/qa/frames/16x9/10-silence-a.jpg",
+        "size": [
+          960,
+          540
+        ],
+        "bytes": 17110,
+        "role": "image"
+      },
+      {
+        "path": "examples/self-promo/qa/frames/16x9/10-silence-b.jpg",
+        "size": [
+          960,
+          540
+        ],
+        "bytes": 16667,
+        "role": "image"
+      },
+      {
+        "path": "examples/self-promo/qa/frames/16x9/11-lockup-a.jpg",
+        "size": [
+          960,
+          540
+        ],
+        "bytes": 14113,
+        "role": "image"
+      },
+      {
+        "path": "examples/self-promo/qa/frames/16x9/11-lockup-b.jpg",
+        "size": [
+          960,
+          540
+        ],
+        "bytes": 14740,
+        "role": "image"
+      },
+      {
+        "path": "examples/self-promo/qa/stills/contact-9x16.jpg",
+        "size": [
+          2200,
+          1288
+        ],
+        "bytes": 95512,
+        "role": "image"
+      },
+      {
+        "path": "examples/self-promo/qa/stills/16x9/06-pipeline.png",
+        "size": [
+          960,
+          540
+        ],
+        "bytes": 636833,
+        "role": "image"
+      },
+      {
+        "path": "examples/self-promo/qa/stills/1x1/06-pipeline.png",
+        "size": [
+          540,
+          540
+        ],
+        "bytes": 377096,
+        "role": "image"
+      },
+      {
+        "path": "examples/self-promo/qa/stills/9x16/01-hook.png",
+        "size": [
+          540,
+          960
+        ],
+        "bytes": 654944,
+        "role": "image"
+      },
+      {
+        "path": "examples/self-promo/qa/stills/9x16/02-title.png",
+        "size": [
+          540,
+          960
+        ],
+        "bytes": 633036,
+        "role": "image"
+      },
+      {
+        "path": "examples/self-promo/qa/stills/9x16/03-shape.png",
+        "size": [
+          540,
+          960
+        ],
+        "bytes": 645606,
+        "role": "image"
+      },
+      {
+        "path": "examples/self-promo/qa/stills/9x16/04-scan.png",
+        "size": [
+          540,
+          960
+        ],
+        "bytes": 589132,
+        "role": "image"
+      },
+      {
+        "path": "examples/self-promo/qa/stills/9x16/05-brief.png",
+        "size": [
+          540,
+          960
+        ],
+        "bytes": 654423,
+        "role": "image"
+      },
+      {
+        "path": "examples/self-promo/qa/stills/9x16/06-pipeline.png",
+        "size": [
+          540,
+          960
+        ],
+        "bytes": 601248,
+        "role": "image"
+      },
+      {
+        "path": "examples/self-promo/qa/stills/9x16/07-refuse.png",
+        "size": [
+          540,
+          960
+        ],
+        "bytes": 603567,
+        "role": "image"
+      },
+      {
+        "path": "examples/self-promo/qa/stills/9x16/08-paths.png",
+        "size": [
+          540,
+          960
+        ],
+        "bytes": 660490,
+        "role": "image"
+      },
+      {
+        "path": "examples/self-promo/qa/stills/9x16/09-formats.png",
+        "size": [
+          540,
+          960
+        ],
+        "bytes": 662217,
+        "role": "image"
+      },
+      {
+        "path": "examples/self-promo/qa/stills/9x16/10-silence.png",
+        "size": [
+          540,
+          960
+        ],
+        "bytes": 643377,
+        "role": "image"
+      },
+      {
+        "path": "examples/self-promo/qa/stills/9x16/11-lockup.png",
+        "size": [
+          540,
+          960
+        ],
+        "bytes": 639464,
+        "role": "image"
+      }
+    ],
+    "videos": [],
+    "fonts": [
+      "skills/promo-video/renderer/public/fonts/Inter.ttf",
+      "skills/promo-video/renderer/public/fonts/JetBrainsMono.ttf"
+    ]
+  },
+  "brand": {
+    "colors": [],
+    "cssVariables": [],
+    "fontFamilies": []
+  },
+  "tests": {
+    "count": 2,
+    "sample": [
+      "tests/helpers.py",
+      "tests/test_pipeline.py"
+    ]
+  },
+  "envVariables": [],
+  "existingVideoCode": [
+    "skills/promo-video/renderer/package.json",
+    "skills/promo-video/renderer/src/Film.tsx",
+    "skills/promo-video/renderer/src/Root.tsx",
+    "skills/promo-video/renderer/src/animations/cube.tsx",
+    "skills/promo-video/renderer/src/animations/easings.ts",
+    "skills/promo-video/renderer/src/animations/motion.ts",
+    "skills/promo-video/renderer/src/animations/springs.ts",
+    "skills/promo-video/renderer/src/components/Atmosphere.tsx",
+    "skills/promo-video/renderer/src/components/Bloom.tsx",
+    "skills/promo-video/renderer/src/components/DeviceFrame.tsx",
+    "skills/promo-video/renderer/src/components/FontLoader.tsx",
+    "skills/promo-video/renderer/src/components/KineticWords.tsx",
+    "skills/promo-video/renderer/src/components/Particles.tsx",
+    "skills/promo-video/renderer/src/components/Whoosh.tsx",
+    "skills/promo-video/renderer/src/fonts.ts",
+    "skills/promo-video/renderer/src/index.ts",
+    "skills/promo-video/renderer/src/layout.ts",
+    "skills/promo-video/renderer/src/scenes/Compare.tsx",
+    "skills/promo-video/renderer/src/scenes/DocumentScene.tsx",
+    "skills/promo-video/renderer/src/scenes/Flow.tsx"
+  ],
+  "skippedForSecurity": [
+    "open router api key "
+  ]
+}

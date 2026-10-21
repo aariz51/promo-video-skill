@@ -6,27 +6,28 @@ carry their own terms:
 
 Fonts
 -----
-`skills/promo-video/template/public/fonts/Inter.ttf`
-`skills/promo-video/template/public/fonts/Baloo2.ttf`
+`skills/promo-video/renderer/public/fonts/Inter.ttf`
+`skills/promo-video/renderer/public/fonts/JetBrainsMono.ttf`
     Licensed under the SIL Open Font License 1.1.
     https://scripts.sil.org/OFL
 
 Sound effects
 -------------
-`skills/promo-video/template/public/sfx/*.mp3`
+`skills/promo-video/renderer/public/sfx/*.mp3`
     Provided as development placeholders. Their provenance has not been
     verified for commercial redistribution. Verify licensing before using them
     in a commercial release, or replace them with effects you have the rights
-    to. The audio builder reads whatever is in that directory, so swapping them
-    requires no code changes.
+    to (same file names; the mixer reads them from that folder).
 
 npm dependency
 --------------
 `cube-motion` (https://www.cube-motion.dev) — MIT. Used for the UI and typography
-motion layer through `src/animations/cube.tsx`.
+motion layer through `renderer/src/animations/cube.tsx`.
 
-Runtime dependency
-------------------
+Runtime dependencies
+--------------------
 Remotion (https://remotion.dev) has its own licence terms, which may require a
-company licence for commercial use. It is a peer dependency of the generated
-project, not redistributed here.
+company licence for commercial use. It is installed from npm, not redistributed here.
+
+The optional `watch` skill (https://github.com/bradautomates/claude-video, MIT) is
+installed separately by the user and invoked, not bundled.

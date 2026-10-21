@@ -1,0 +1,46 @@
+{
+  "ok": true,
+  "issues": [],
+  "videos": {
+    "16:9": {
+      "file": "out/promo-16x9.mp4",
+      "bytes": 27970474,
+      "width": 1920,
+      "height": 1080,
+      "codec": "h264",
+      "fps": 30.0,
+      "duration": 93.056,
+      "audio": {
+        "codec": "aac",
+        "channels": 2
+      },
+      "meanVolume": -24.2,
+      "stills": [
+        "qa/frames/16x9/01-hook-a.jpg",
+        "qa/frames/16x9/01-hook-b.jpg",
+        "qa/frames/16x9/02-title-a.jpg",
+        "qa/frames/16x9/02-title-b.jpg",
+        "qa/frames/16x9/03-shape-a.jpg",
+        "qa/frames/16x9/03-shape-b.jpg",
+        "qa/frames/16x9/04-scan-a.jpg",
+        "qa/frames/16x9/04-scan-b.jpg",
+        "qa/frames/16x9/05-brief-a.jpg",
+        "qa/frames/16x9/05-brief-b.jpg",
+        "qa/frames/16x9/06-pipeline-a.jpg",
+        "qa/frames/16x9/06-pipeline-b.jpg",
+        "qa/frames/16x9/07-refuse-a.jpg",
+        "qa/frames/16x9/07-refuse-b.jpg",
+        "qa/frames/16x9/08-paths-a.jpg",
+        "qa/frames/16x9/08-paths-b.jpg",
+        "qa/frames/16x9/09-formats-a.jpg",
+        "qa/frames/16x9/09-formats-b.jpg",
+        "qa/frames/16x9/10-silence-a.jpg",
+        "qa/frames/16x9/10-silence-b.jpg",
+        "qa/frames/16x9/11-lockup-a.jpg",
+        "qa/frames/16x9/11-lockup-b.jpg"
+      ]
+    }
+  },
+  "narrationLines": 8,
+  "voiceEngine": "openrouter"
+}

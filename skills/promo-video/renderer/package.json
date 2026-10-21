@@ -1,0 +1,26 @@
+{
+  "name": "promo-video-renderer",
+  "version": "4.0.0",
+  "description": "Data-driven Remotion renderer for the /promo-video skill",
+  "license": "MIT",
+  "private": true,
+  "dependencies": {
+    "@remotion/cli": "4.0.481",
+    "cube-motion": "0.1.0",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "remotion": "4.0.481"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.7",
+    "@types/web": "0.0.166",
+    "prettier": "3.8.1",
+    "typescript": "5.9.3"
+  },
+  "scripts": {
+    "dev": "remotion studio",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\"",
+    "render:sample": "remotion render src/index.ts Promo16x9 out/sample-16x9.mp4 --scale=0.5"
+  }
+}

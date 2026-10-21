@@ -1,0 +1,1048 @@
+{
+  "version": 1,
+  "product": "promo-video",
+  "source": "framework",
+  "seed": 7,
+  "fps": 30,
+  "durationInFrames": 2790,
+  "duration": 93.0,
+  "compositions": [
+    {
+      "aspect": "16:9",
+      "id": "Promo16x9",
+      "width": 1920,
+      "height": 1080
+    }
+  ],
+  "quality": {
+    "name": "final",
+    "crf": 18,
+    "scale": 1.0
+  },
+  "style": {
+    "ground": "#0B0C0F",
+    "ground2": "#16181D",
+    "ink": "#F4F1EA",
+    "inkSoft": "#9A9DA6",
+    "accent": "#6E9BFF",
+    "line": "#2A2D35",
+    "dark": true,
+    "preset": "graphite",
+    "fontHead": "Inter"
+  },
+  "scenes": [
+    {
+      "id": "hook",
+      "kind": "hook",
+      "purpose": "visual mystery: fragments of a repository orbit a point of light, then freeze",
+      "source": "framework §4 beat 1",
+      "from": 0,
+      "durationInFrames": 240,
+      "transition": {
+        "type": "none",
+        "frames": 0
+      },
+      "props": {
+        "line": "What if your repository could direct its own launch film?",
+        "accent": [
+          "repository"
+        ],
+        "fragments": [
+          "package.json",
+          "README.md",
+          "src/routes",
+          "SKILL.md",
+          "tokens.css",
+          "tests/",
+          "npm run dev",
+          "screens/",
+          "CHANGELOG.md",
+          "docs/",
+          "timeline.json",
+          "claims"
+        ],
+        "_t": {
+          "freeze": 4.4,
+          "line": 5.0
+        }
+      },
+      "claims": []
+    },
+    {
+      "id": "title",
+      "kind": "title",
+      "purpose": "the name lands in silence",
+      "source": "framework §4 beat 2",
+      "from": 240,
+      "durationInFrames": 150,
+      "transition": {
+        "type": "light",
+        "frames": 24
+      },
+      "props": {
+        "name": "promo-video",
+        "tagline": "An agent skill that turns a repository into a launch film.",
+        "_t": {
+          "name": 0.5,
+          "tagline": 1.5
+        }
+      },
+      "claims": [
+        "C14"
+      ]
+    },
+    {
+      "id": "shape",
+      "kind": "pillars",
+      "purpose": "the shape of the product: understand, direct, verify",
+      "source": "framework §4 beat 3",
+      "from": 390,
+      "durationInFrames": 210,
+      "transition": {
+        "type": "fade",
+        "frames": 15
+      },
+      "props": {
+        "items": [
+          {
+            "title": "Understand",
+            "detail": "the product, from its own code"
+          },
+          {
+            "title": "Direct",
+            "detail": "a brief from a framework or a film you admire"
+          },
+          {
+            "title": "Verify",
+            "detail": "facts, timing, sound and the final file"
+          }
+        ],
+        "focus": 2,
+        "_t": {
+          "items": [
+            0.5,
+            1.0,
+            1.5
+          ],
+          "focus": 2.4
+        }
+      },
+      "claims": []
+    },
+    {
+      "id": "scan",
+      "kind": "terminal",
+      "purpose": "proof: the real scan of this repository",
+      "source": "framework §4 beat 4",
+      "from": 600,
+      "durationInFrames": 300,
+      "transition": {
+        "type": "push",
+        "frames": 18
+      },
+      "props": {
+        "title": "promo-video",
+        "lines": [
+          {
+            "type": "cmd",
+            "text": "promo init --inspiration none"
+          },
+          {
+            "type": "out",
+            "text": "Workflow: master creative framework (no inspiration)"
+          },
+          {
+            "type": "cmd",
+            "text": "promo scan"
+          },
+          {
+            "type": "out",
+            "text": "Type: agent-skill · frameworks: React, Remotion"
+          },
+          {
+            "type": "out",
+            "text": "Routes: 0 · screens: 1 · skills: 1 · tests: 2"
+          },
+          {
+            "type": "out",
+            "text": "Launch: npm run dev http://localhost:3000"
+          },
+          {
+            "type": "dim",
+            "text": "Not read (secret-like names): 1 file(s)"
+          },
+          {
+            "type": "ok",
+            "text": "Wrote product-scan.json"
+          }
+        ],
+        "caption": "It starts with what the code can prove.",
+        "_t": {
+          "lines": [
+            {
+              "type": "cmd",
+              "at": 0.5,
+              "typeFor": 1.04
+            },
+            {
+              "type": "out",
+              "at": 1.89
+            },
+            {
+              "type": "cmd",
+              "at": 2.17,
+              "typeFor": 0.45
+            },
+            {
+              "type": "out",
+              "at": 2.97
+            },
+            {
+              "type": "out",
+              "at": 3.25
+            },
+            {
+              "type": "out",
+              "at": 3.53
+            },
+            {
+              "type": "dim",
+              "at": 3.81
+            },
+            {
+              "type": "ok",
+              "at": 4.09
+            }
+          ]
+        }
+      },
+      "claims": [
+        "C2"
+      ]
+    },
+    {
+      "id": "brief",
+      "kind": "document",
+      "purpose": "hero demonstration, part one: the brief assembles, every claim citing a file",
+      "source": "framework §4 beat 5 · §6",
+      "from": 900,
+      "durationInFrames": 390,
+      "transition": {
+        "type": "fade",
+        "frames": 15
+      },
+      "props": {
+        "title": "product-brief.md",
+        "source": "examples/self-promo",
+        "sections": [
+          {
+            "heading": "Product",
+            "lines": [
+              "An agent skill that directs a launch film",
+              "from the product's own repository."
+            ]
+          },
+          {
+            "heading": "Value proposition",
+            "lines": [
+              "Understand · Direct · Verify"
+            ]
+          },
+          {
+            "heading": "Factual claims",
+            "lines": [
+              "C1  One question: an inspiration video?  SKILL.md:58",
+              "C3  A missing source fails the check  artifacts.py:217",
+              "C4  Numbers need a claim id  timeline.py:256"
+            ]
+          },
+          {
+            "heading": "Restrictions",
+            "lines": [
+              "No users, ratings or speed claims.",
+              "No background music."
+            ]
+          }
+        ],
+        "caption": "Every claim cites the file behind it.",
+        "_t": {
+          "sections": [
+            0.8,
+            3.42,
+            6.05,
+            8.68
+          ]
+        }
+      },
+      "claims": [
+        "C1",
+        "C3",
+        "C4"
+      ]
+    },
+    {
+      "id": "pipeline",
+      "kind": "flow",
+      "purpose": "hero demonstration, part two: inspiration becomes an original film",
+      "source": "framework §4 beats 5–6",
+      "from": 1290,
+      "durationInFrames": 360,
+      "transition": {
+        "type": "push",
+        "frames": 18
+      },
+      "props": {
+        "title": "Inspiration in. An original film out.",
+        "steps": [
+          {
+            "label": "Inspiration video",
+            "kind": "input",
+            "lines": [
+              "frames + transcript via watch",
+              "every hard cut measured"
+            ]
+          },
+          {
+            "label": "Inspirational prompt",
+            "lines": [
+              "12 sections",
+              "10–20 creative rules"
+            ]
+          },
+          {
+            "label": "Product-specific prompt",
+            "lines": [
+              "structure from the film",
+              "facts from the brief"
+            ]
+          },
+          {
+            "label": "Original film",
+            "kind": "result",
+            "lines": [
+              "timeline → render → QA"
+            ]
+          }
+        ],
+        "_t": {
+          "steps": [
+            0.5,
+            3.77,
+            7.03,
+            10.3
+          ]
+        }
+      },
+      "claims": [
+        "C5",
+        "C10",
+        "C12"
+      ]
+    },
+    {
+      "id": "refuse",
+      "kind": "terminal",
+      "purpose": "unexpected capability: it refuses an unsourced number",
+      "source": "framework §4 beat 7",
+      "from": 1650,
+      "durationInFrames": 270,
+      "transition": {
+        "type": "wipe",
+        "frames": 15
+      },
+      "props": {
+        "title": "promo-video",
+        "lines": [
+          {
+            "type": "dim",
+            "text": "# timeline.json: \"Reports in 3 seconds.\""
+          },
+          {
+            "type": "cmd",
+            "text": "promo check timeline"
+          },
+          {
+            "type": "out",
+            "text": "[error] scene 'trust': shows or says a number"
+          },
+          {
+            "type": "out",
+            "text": "        without citing a claim id (numbers need sources)"
+          },
+          {
+            "type": "out",
+            "text": "1 error(s). Fix them and re-run."
+          }
+        ],
+        "caption": "It refuses to invent.",
+        "_t": {
+          "lines": [
+            {
+              "type": "dim",
+              "at": 0.5
+            },
+            {
+              "type": "cmd",
+              "at": 0.78,
+              "typeFor": 0.71
+            },
+            {
+              "type": "out",
+              "at": 1.84
+            },
+            {
+              "type": "out",
+              "at": 2.12
+            },
+            {
+              "type": "out",
+              "at": 2.4
+            }
+          ]
+        }
+      },
+      "claims": [
+        "C4"
+      ]
+    },
+    {
+      "id": "paths",
+      "kind": "compare",
+      "purpose": "two paths: a manual process versus a pipeline that leaves readable files",
+      "source": "framework §4 beat 9",
+      "from": 1920,
+      "durationInFrames": 210,
+      "transition": {
+        "type": "fade",
+        "frames": 15
+      },
+      "props": {
+        "left": {
+          "title": "By hand",
+          "items": [
+            "Read the codebase",
+            "Write a brief",
+            "Storyboard and cut",
+            "Check every frame"
+          ]
+        },
+        "right": {
+          "title": "/promo-video",
+          "items": [
+            "product-scan.json",
+            "product-brief.md",
+            "timeline.json",
+            "qa-report.md + stills"
+          ]
+        },
+        "verdict": "Every step leaves a file you can read.",
+        "_t": {
+          "left": 0.4,
+          "right": 1.3,
+          "verdict": 4.8
+        }
+      },
+      "claims": [
+        "C3",
+        "C13"
+      ]
+    },
+    {
+      "id": "formats",
+      "kind": "montage",
+      "purpose": "one timeline, three formats: real stills of this film's pipeline scene",
+      "source": "framework §4 beat 12",
+      "from": 2130,
+      "durationInFrames": 210,
+      "transition": {
+        "type": "fade",
+        "frames": 15
+      },
+      "props": {
+        "title": "One timeline. Every format.",
+        "layout": "row",
+        "items": [
+          {
+            "media": "formats/pipeline-16x9.png",
+            "label": "16:9 · 1920 × 1080"
+          },
+          {
+            "media": "formats/pipeline-9x16.png",
+            "label": "9:16"
+          },
+          {
+            "media": "formats/pipeline-1x1.png",
+            "label": "1:1"
+          }
+        ],
+        "_t": {
+          "items": [
+            0.3,
+            0.44,
+            0.58
+          ]
+        },
+        "_media": {
+          "formats/pipeline-16x9.png": 1.77778,
+          "formats/pipeline-9x16.png": 0.5625,
+          "formats/pipeline-1x1.png": 1.0
+        }
+      },
+      "claims": [
+        "C7"
+      ]
+    },
+    {
+      "id": "silence",
+      "kind": "statement",
+      "purpose": "trust: no background music, and how that is proven",
+      "source": "framework §10 · §4 beat 12",
+      "from": 2340,
+      "durationInFrames": 210,
+      "transition": {
+        "type": "light",
+        "frames": 24
+      },
+      "props": {
+        "eyebrow": "Sound",
+        "text": "No background music.",
+        "accent": [
+          "No"
+        ],
+        "size": "xl",
+        "small": "Effects tied to the picture, and a voice. QA measures the silence between them.",
+        "_t": {
+          "text": 0.35,
+          "small": 1.4
+        }
+      },
+      "claims": [
+        "C8"
+      ]
+    },
+    {
+      "id": "lockup",
+      "kind": "lockup",
+      "purpose": "the light returns; the name; the three ideas; the command",
+      "source": "framework §4 beat 13",
+      "from": 2550,
+      "durationInFrames": 240,
+      "transition": {
+        "type": "fade",
+        "frames": 15
+      },
+      "props": {
+        "name": "promo-video",
+        "line": "Understand. Direct. Verify.",
+        "cta": "/promo-video",
+        "small": "Open source · MIT",
+        "_t": {
+          "logo": 0.3,
+          "name": 0.8,
+          "line": 1.9,
+          "cta": 3.0
+        }
+      },
+      "claims": [
+        "C1",
+        "C14"
+      ]
+    }
+  ],
+  "narration": {
+    "enabled": true,
+    "reason": null,
+    "lines": [
+      {
+        "at": 5.3,
+        "text": "Every product already holds its story.",
+        "scene": "hook",
+        "windowEnd": 8.4
+      },
+      {
+        "at": 13.6,
+        "text": "It reads your code, directs the film, and checks its own work.",
+        "scene": "shape",
+        "windowEnd": 20.4
+      },
+      {
+        "at": 25.2,
+        "text": "It starts with what your repository can prove.",
+        "scene": "scan",
+        "windowEnd": 30.4
+      },
+      {
+        "at": 37.0,
+        "text": "Every claim in the brief cites the file behind it.",
+        "scene": "brief",
+        "windowEnd": 43.4
+      },
+      {
+        "at": 46.4,
+        "text": "Give it a film you admire. It borrows the grammar, never the footage.",
+        "scene": "pipeline",
+        "windowEnd": 55.4
+      },
+      {
+        "at": 59.2,
+        "text": "When a fact has no source, it stops.",
+        "scene": "refuse",
+        "windowEnd": 64.4
+      },
+      {
+        "at": 71.8,
+        "text": "One timeline renders every format.",
+        "scene": "formats",
+        "windowEnd": 78.4
+      },
+      {
+        "at": 87.4,
+        "text": "Point it at your repository.",
+        "scene": "lockup",
+        "windowEnd": 93.4
+      }
+    ]
+  },
+  "sound": {
+    "cues": [
+      {
+        "fx": "rise",
+        "at": 0.2,
+        "vol": 0.3,
+        "scene": "hook",
+        "why": "the point of light appears"
+      },
+      {
+        "fx": "riser",
+        "at": 2.8,
+        "vol": 0.4,
+        "scene": "hook",
+        "why": "fragments accelerate"
+      },
+      {
+        "fx": "thud",
+        "at": 4.4,
+        "vol": 0.75,
+        "scene": "hook",
+        "why": "everything freezes"
+      },
+      {
+        "fx": "riser",
+        "at": 6.9,
+        "vol": 0.45,
+        "scene": "title",
+        "why": "tension into a light transition"
+      },
+      {
+        "fx": "sparkle",
+        "at": 8.0,
+        "vol": 0.35,
+        "scene": "title",
+        "why": "light bloom peaks"
+      },
+      {
+        "fx": "thud",
+        "at": 8.5,
+        "vol": 0.5,
+        "scene": "title",
+        "why": "the name lands"
+      },
+      {
+        "fx": "sparkle",
+        "at": 8.65,
+        "vol": 0.3,
+        "scene": "title",
+        "why": "light sweep"
+      },
+      {
+        "fx": "pop",
+        "at": 13.5,
+        "vol": 0.6,
+        "scene": "shape",
+        "why": "pillar lands"
+      },
+      {
+        "fx": "pop",
+        "at": 14.0,
+        "vol": 0.6,
+        "scene": "shape",
+        "why": "pillar lands"
+      },
+      {
+        "fx": "pop",
+        "at": 14.5,
+        "vol": 0.6,
+        "scene": "shape",
+        "why": "pillar lands"
+      },
+      {
+        "fx": "whoosh",
+        "at": 19.8,
+        "vol": 0.5,
+        "scene": "scan",
+        "why": "push transition"
+      },
+      {
+        "fx": "type",
+        "at": 20.5,
+        "vol": 0.55,
+        "scene": "scan",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 20.595,
+        "vol": 0.55,
+        "scene": "scan",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 20.689,
+        "vol": 0.55,
+        "scene": "scan",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 20.784,
+        "vol": 0.55,
+        "scene": "scan",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 20.878,
+        "vol": 0.55,
+        "scene": "scan",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 20.973,
+        "vol": 0.55,
+        "scene": "scan",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 21.067,
+        "vol": 0.55,
+        "scene": "scan",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 21.162,
+        "vol": 0.55,
+        "scene": "scan",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 21.256,
+        "vol": 0.55,
+        "scene": "scan",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 21.351,
+        "vol": 0.55,
+        "scene": "scan",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 21.445,
+        "vol": 0.55,
+        "scene": "scan",
+        "why": "keystroke"
+      },
+      {
+        "fx": "tick2",
+        "at": 21.89,
+        "vol": 0.35,
+        "scene": "scan",
+        "why": "output line"
+      },
+      {
+        "fx": "type",
+        "at": 22.17,
+        "vol": 0.55,
+        "scene": "scan",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 22.26,
+        "vol": 0.55,
+        "scene": "scan",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 22.35,
+        "vol": 0.55,
+        "scene": "scan",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 22.44,
+        "vol": 0.55,
+        "scene": "scan",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 22.53,
+        "vol": 0.55,
+        "scene": "scan",
+        "why": "keystroke"
+      },
+      {
+        "fx": "tick2",
+        "at": 22.97,
+        "vol": 0.35,
+        "scene": "scan",
+        "why": "output line"
+      },
+      {
+        "fx": "tick2",
+        "at": 23.25,
+        "vol": 0.35,
+        "scene": "scan",
+        "why": "output line"
+      },
+      {
+        "fx": "tick2",
+        "at": 23.53,
+        "vol": 0.35,
+        "scene": "scan",
+        "why": "output line"
+      },
+      {
+        "fx": "tick2",
+        "at": 23.81,
+        "vol": 0.35,
+        "scene": "scan",
+        "why": "output line"
+      },
+      {
+        "fx": "chime",
+        "at": 24.09,
+        "vol": 0.45,
+        "scene": "scan",
+        "why": "success line"
+      },
+      {
+        "fx": "tick",
+        "at": 30.8,
+        "vol": 0.4,
+        "scene": "brief",
+        "why": "section writes in"
+      },
+      {
+        "fx": "tick",
+        "at": 33.42,
+        "vol": 0.4,
+        "scene": "brief",
+        "why": "section writes in"
+      },
+      {
+        "fx": "tick",
+        "at": 36.05,
+        "vol": 0.4,
+        "scene": "brief",
+        "why": "section writes in"
+      },
+      {
+        "fx": "tick",
+        "at": 38.68,
+        "vol": 0.4,
+        "scene": "brief",
+        "why": "section writes in"
+      },
+      {
+        "fx": "whoosh",
+        "at": 42.8,
+        "vol": 0.5,
+        "scene": "pipeline",
+        "why": "push transition"
+      },
+      {
+        "fx": "pop",
+        "at": 43.5,
+        "vol": 0.6,
+        "scene": "pipeline",
+        "why": "step activates"
+      },
+      {
+        "fx": "pop",
+        "at": 46.77,
+        "vol": 0.6,
+        "scene": "pipeline",
+        "why": "step activates"
+      },
+      {
+        "fx": "pop",
+        "at": 50.03,
+        "vol": 0.6,
+        "scene": "pipeline",
+        "why": "step activates"
+      },
+      {
+        "fx": "chime",
+        "at": 53.3,
+        "vol": 0.6,
+        "scene": "pipeline",
+        "why": "result resolves"
+      },
+      {
+        "fx": "whoosh",
+        "at": 54.9,
+        "vol": 0.4,
+        "scene": "refuse",
+        "why": "typography wipe"
+      },
+      {
+        "fx": "tick2",
+        "at": 55.5,
+        "vol": 0.35,
+        "scene": "refuse",
+        "why": "output line"
+      },
+      {
+        "fx": "type",
+        "at": 55.78,
+        "vol": 0.55,
+        "scene": "refuse",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 55.881,
+        "vol": 0.55,
+        "scene": "refuse",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 55.983,
+        "vol": 0.55,
+        "scene": "refuse",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 56.084,
+        "vol": 0.55,
+        "scene": "refuse",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 56.186,
+        "vol": 0.55,
+        "scene": "refuse",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 56.287,
+        "vol": 0.55,
+        "scene": "refuse",
+        "why": "keystroke"
+      },
+      {
+        "fx": "type",
+        "at": 56.389,
+        "vol": 0.55,
+        "scene": "refuse",
+        "why": "keystroke"
+      },
+      {
+        "fx": "tick2",
+        "at": 56.84,
+        "vol": 0.35,
+        "scene": "refuse",
+        "why": "output line"
+      },
+      {
+        "fx": "tick2",
+        "at": 57.12,
+        "vol": 0.35,
+        "scene": "refuse",
+        "why": "output line"
+      },
+      {
+        "fx": "tick2",
+        "at": 57.4,
+        "vol": 0.35,
+        "scene": "refuse",
+        "why": "output line"
+      },
+      {
+        "fx": "pop",
+        "at": 64.4,
+        "vol": 0.6,
+        "scene": "paths",
+        "why": "first path"
+      },
+      {
+        "fx": "pop",
+        "at": 65.3,
+        "vol": 0.6,
+        "scene": "paths",
+        "why": "second path"
+      },
+      {
+        "fx": "chime",
+        "at": 68.8,
+        "vol": 0.5,
+        "scene": "paths",
+        "why": "verdict"
+      },
+      {
+        "fx": "drag",
+        "at": 71.3,
+        "vol": 0.5,
+        "scene": "formats",
+        "why": "cards fan out"
+      },
+      {
+        "fx": "riser",
+        "at": 76.9,
+        "vol": 0.45,
+        "scene": "silence",
+        "why": "tension into a light transition"
+      },
+      {
+        "fx": "sparkle",
+        "at": 78.0,
+        "vol": 0.35,
+        "scene": "silence",
+        "why": "light bloom peaks"
+      },
+      {
+        "fx": "ascent",
+        "at": 85.4,
+        "vol": 0.3,
+        "scene": "lockup",
+        "why": "final resolve"
+      },
+      {
+        "fx": "sparkle",
+        "at": 85.8,
+        "vol": 0.4,
+        "scene": "lockup",
+        "why": "name resolves"
+      }
+    ],
+    "ambience": false
+  },
+  "audio": {
+    "src": null
+  }
+}

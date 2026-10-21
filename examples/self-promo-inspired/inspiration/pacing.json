@@ -1,0 +1,38 @@
+{
+  "duration": 26.674,
+  "cuts": [
+    14.25,
+    22.625
+  ],
+  "cutCount": 2,
+  "shotCount": 3,
+  "averageShot": 8.89,
+  "shortestShot": 4.049,
+  "longestShot": 14.25,
+  "quarters": [
+    {
+      "from": 0.0,
+      "to": 6.67,
+      "cuts": 0,
+      "cutsPerMinute": 0.0
+    },
+    {
+      "from": 6.67,
+      "to": 13.34,
+      "cuts": 0,
+      "cutsPerMinute": 0.0
+    },
+    {
+      "from": 13.34,
+      "to": 20.01,
+      "cuts": 1,
+      "cutsPerMinute": 9.0
+    },
+    {
+      "from": 20.01,
+      "to": 26.67,
+      "cuts": 1,
+      "cutsPerMinute": 9.0
+    }
+  ]
+}

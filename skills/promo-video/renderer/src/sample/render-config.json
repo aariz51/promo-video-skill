@@ -1,0 +1,343 @@
+{
+ "version": 1,
+ "product": "Sample product",
+ "source": "framework",
+ "seed": 3,
+ "fps": 30,
+ "durationInFrames": 1560,
+ "duration": 52.0,
+ "compositions": [
+  {
+   "aspect": "16:9",
+   "id": "Promo16x9",
+   "width": 1920,
+   "height": 1080
+  }
+ ],
+ "quality": {
+  "name": "final",
+  "crf": 18,
+  "scale": 1.0
+ },
+ "style": {
+  "ground": "#0B0C0F",
+  "ground2": "#16181D",
+  "ink": "#F4F1EA",
+  "inkSoft": "#9A9DA6",
+  "accent": "#1F8A70",
+  "line": "#2A2D35",
+  "dark": true,
+  "preset": "graphite",
+  "fontHead": "Inter"
+ },
+ "scenes": [
+  {
+   "id": "hook",
+   "kind": "hook",
+   "purpose": "mystery: receipts swirl",
+   "source": null,
+   "from": 0,
+   "durationInFrames": 240,
+   "transition": {
+    "type": "none",
+    "frames": 0
+   },
+   "props": {
+    "line": "Where did this month go?",
+    "fragments": [
+     "taxi",
+     "lunch",
+     "hosting",
+     "train"
+    ],
+    "_t": {
+     "freeze": 4.4,
+     "line": 5.0
+    }
+   },
+   "claims": []
+  },
+  {
+   "id": "title",
+   "kind": "title",
+   "purpose": "name",
+   "source": null,
+   "from": 240,
+   "durationInFrames": 150,
+   "transition": {
+    "type": "light",
+    "frames": 24
+   },
+   "props": {
+    "name": "Tallyboard",
+    "tagline": "Receipts in. A finished report out.",
+    "_t": {
+     "name": 0.5,
+     "tagline": 1.5
+    }
+   },
+   "claims": []
+  },
+  {
+   "id": "flow",
+   "kind": "flow",
+   "purpose": "hero demonstration",
+   "source": null,
+   "from": 390,
+   "durationInFrames": 420,
+   "transition": {
+    "type": "push",
+    "frames": 18
+   },
+   "props": {
+    "title": "From receipts to a report",
+    "steps": [
+     {
+      "label": "Drop receipts",
+      "lines": [
+       "taxi.jpg",
+       "lunch.pdf"
+      ]
+     },
+     {
+      "label": "Grouped by category"
+     },
+     {
+      "label": "Monthly report"
+     }
+    ],
+    "_t": {
+     "steps": [
+      0.5,
+      6.4,
+      12.3
+     ]
+    }
+   },
+   "claims": [
+    "C1"
+   ]
+  },
+  {
+   "id": "trust",
+   "kind": "statement",
+   "purpose": "trust",
+   "source": null,
+   "from": 810,
+   "durationInFrames": 270,
+   "transition": {
+    "type": "fade",
+    "frames": 15
+   },
+   "props": {
+    "text": "Your receipts never leave your machine.",
+    "accent": [
+     "never"
+    ],
+    "_t": {
+     "text": 0.35,
+     "small": 1.4
+    }
+   },
+   "claims": [
+    "C3"
+   ]
+  },
+  {
+   "id": "compare",
+   "kind": "compare",
+   "purpose": "two paths",
+   "source": null,
+   "from": 1080,
+   "durationInFrames": 240,
+   "transition": {
+    "type": "fade",
+    "frames": 15
+   },
+   "props": {
+    "left": {
+     "title": "By hand",
+     "items": [
+      "Sort receipts",
+      "Type totals"
+     ]
+    },
+    "right": {
+     "title": "Tallyboard",
+     "items": [
+      "Grouped by category",
+      "Export CSV"
+     ]
+    },
+    "_t": {
+     "left": 0.4,
+     "right": 1.3
+    }
+   },
+   "claims": [
+    "C1",
+    "C2"
+   ]
+  },
+  {
+   "id": "lockup",
+   "kind": "lockup",
+   "purpose": "close",
+   "source": null,
+   "from": 1320,
+   "durationInFrames": 240,
+   "transition": {
+    "type": "fade",
+    "frames": 18
+   },
+   "props": {
+    "name": "Tallyboard",
+    "line": "Drop. Group. Export.",
+    "_t": {
+     "logo": 0.3,
+     "name": 0.8,
+     "line": 1.9,
+     "cta": 3.0
+    }
+   },
+   "claims": []
+  }
+ ],
+ "narration": {
+  "enabled": true,
+  "reason": null,
+  "lines": [
+   {
+    "at": 5.2,
+    "text": "Every month ends the same way.",
+    "scene": "hook",
+    "windowEnd": 8.4
+   },
+   {
+    "at": 13.4,
+    "text": "Drop the receipts in. Tallyboard groups every total by category.",
+    "scene": "flow",
+    "windowEnd": 27.4
+   },
+   {
+    "at": 44.4,
+    "text": "Tallyboard. The month, sorted.",
+    "scene": "lockup",
+    "windowEnd": 52.4
+   }
+  ]
+ },
+ "sound": {
+  "cues": [
+   {
+    "fx": "rise",
+    "at": 0.2,
+    "vol": 0.3,
+    "scene": "hook",
+    "why": "the point of light appears"
+   },
+   {
+    "fx": "riser",
+    "at": 2.8,
+    "vol": 0.4,
+    "scene": "hook",
+    "why": "fragments accelerate"
+   },
+   {
+    "fx": "thud",
+    "at": 4.4,
+    "vol": 0.75,
+    "scene": "hook",
+    "why": "everything freezes"
+   },
+   {
+    "fx": "riser",
+    "at": 6.9,
+    "vol": 0.45,
+    "scene": "title",
+    "why": "tension into a light transition"
+   },
+   {
+    "fx": "sparkle",
+    "at": 8.0,
+    "vol": 0.35,
+    "scene": "title",
+    "why": "light bloom peaks"
+   },
+   {
+    "fx": "thud",
+    "at": 8.5,
+    "vol": 0.5,
+    "scene": "title",
+    "why": "the name lands"
+   },
+   {
+    "fx": "sparkle",
+    "at": 8.65,
+    "vol": 0.3,
+    "scene": "title",
+    "why": "light sweep"
+   },
+   {
+    "fx": "whoosh",
+    "at": 12.8,
+    "vol": 0.5,
+    "scene": "flow",
+    "why": "push transition"
+   },
+   {
+    "fx": "pop",
+    "at": 13.5,
+    "vol": 0.6,
+    "scene": "flow",
+    "why": "step activates"
+   },
+   {
+    "fx": "pop",
+    "at": 19.4,
+    "vol": 0.6,
+    "scene": "flow",
+    "why": "step activates"
+   },
+   {
+    "fx": "chime",
+    "at": 25.3,
+    "vol": 0.6,
+    "scene": "flow",
+    "why": "result resolves"
+   },
+   {
+    "fx": "pop",
+    "at": 36.4,
+    "vol": 0.6,
+    "scene": "compare",
+    "why": "first path"
+   },
+   {
+    "fx": "pop",
+    "at": 37.3,
+    "vol": 0.6,
+    "scene": "compare",
+    "why": "second path"
+   },
+   {
+    "fx": "ascent",
+    "at": 44.4,
+    "vol": 0.3,
+    "scene": "lockup",
+    "why": "final resolve"
+   },
+   {
+    "fx": "sparkle",
+    "at": 44.8,
+    "vol": 0.4,
+    "scene": "lockup",
+    "why": "name resolves"
+   }
+  ],
+  "ambience": false
+ },
+ "audio": {
+  "src": null
+ }
+}

@@ -25,3 +25,6 @@ __pycache__/
 
 # stray root lockfile — there is no root package.json; the template has its own
 /package-lock.json
+
+# the default workspace when the skill is run on this repo itself; curated copies live in examples/
+/promo/

@@ -1,0 +1,116 @@
+{
+  "root": "../..",
+  "fileCount": 107,
+  "projectType": "agent-skill",
+  "frameworks": [
+    "React",
+    "Remotion"
+  ],
+  "languages": {
+    ".tsx": 27,
+    ".py": 19,
+    ".md": 13,
+    ".ts": 8,
+    ".yml": 4,
+    ".json": 4
+  },
+  "manifests": {
+    "skills/promo-video/renderer/package.json": {
+      "type": "npm",
+      "name": "promo-video-renderer",
+      "description": "Data-driven Remotion renderer for the /promo-video skill",
+      "version": "4.0.0",
+      "bin": null,
+      "dependencies": [
+        "@remotion/cli",
+        "@types/react",
+        "@types/web",
+        "cube-motion",
+        "prettier",
+        "react",
+        "react-dom",
+        "remotion",
+        "typescript"
+      ]
+    }
+  },
+  "readme": {
+    "path": "README.md",
+    "title": "promo-video",
+    "intro": "**An agent skill that turns your repository into a cinematic product film.**",
+    "headings": [
+      "promo-video"
+    ],
+    "codeCommands": []
+  },
+  "docs": [
+    "CONTRIBUTING.md"
+  ],
+  "skills": [
+    {
+      "path": "skills/promo-video/SKILL.md",
+      "name": "promo-video",
+      "description": "Make a cinematic launch/promo film for the product in the current repository. The skill inspects the codebase, optionally watches a YouTube video for creative inspiration (via the claude-video `watch` skill), turns both into a product-specific creative prompt, and renders an original 1920×1080 film with Remotion: real product moments, sparse voiceover, mapped sound design, no background music, aut",
+      "userInvocable": true
+    }
+  ],
+  "routes": [],
+  "screens": [
+    "skills/promo-video/renderer/src/scenes/Screen.tsx"
+  ],
+  "launch": {
+    "command": "npm run dev",
+    "cwd": "skills/promo-video/renderer",
+    "script": "remotion studio",
+    "url": "http://localhost:3000",
+    "source": "skills/promo-video/renderer/package.json"
+  },
+  "assets": {
+    "logos": [],
+    "screenshots": [],
+    "images": [],
+    "videos": [],
+    "fonts": [
+      "skills/promo-video/renderer/public/fonts/Inter.ttf",
+      "skills/promo-video/renderer/public/fonts/JetBrainsMono.ttf"
+    ]
+  },
+  "brand": {
+    "colors": [],
+    "cssVariables": [],
+    "fontFamilies": []
+  },
+  "tests": {
+    "count": 2,
+    "sample": [
+      "tests/helpers.py",
+      "tests/test_pipeline.py"
+    ]
+  },
+  "envVariables": [],
+  "existingVideoCode": [
+    "skills/promo-video/renderer/package.json",
+    "skills/promo-video/renderer/src/Film.tsx",
+    "skills/promo-video/renderer/src/Root.tsx",
+    "skills/promo-video/renderer/src/animations/cube.tsx",
+    "skills/promo-video/renderer/src/animations/easings.ts",
+    "skills/promo-video/renderer/src/animations/motion.ts",
+    "skills/promo-video/renderer/src/animations/springs.ts",
+    "skills/promo-video/renderer/src/components/Atmosphere.tsx",
+    "skills/promo-video/renderer/src/components/Bloom.tsx",
+    "skills/promo-video/renderer/src/components/DeviceFrame.tsx",
+    "skills/promo-video/renderer/src/components/FontLoader.tsx",
+    "skills/promo-video/renderer/src/components/KineticWords.tsx",
+    "skills/promo-video/renderer/src/components/Particles.tsx",
+    "skills/promo-video/renderer/src/components/Whoosh.tsx",
+    "skills/promo-video/renderer/src/fonts.ts",
+    "skills/promo-video/renderer/src/index.ts",
+    "skills/promo-video/renderer/src/layout.ts",
+    "skills/promo-video/renderer/src/scenes/Compare.tsx",
+    "skills/promo-video/renderer/src/scenes/DocumentScene.tsx",
+    "skills/promo-video/renderer/src/scenes/Flow.tsx"
+  ],
+  "skippedForSecurity": [
+    "open router api key "
+  ]
+}

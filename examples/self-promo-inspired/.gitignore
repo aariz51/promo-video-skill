@@ -1,0 +1,12 @@
+# regenerable pipeline output
+build/
+out/
+qa/frames/
+qa/stills/
+qa/hook/
+qa/*.jpg
+inspiration/watch/
+# third-party transcript and local paths: regenerate with `promo watch`
+inspiration/evidence.json
+inspiration/watch-report.md
+inspiration/*.jpg

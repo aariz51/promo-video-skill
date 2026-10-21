@@ -1,5 +1,5 @@
 name: Bug report
-description: Something in the skill or the Remotion template did not work
+description: Something in the skill, the engine or the renderer did not work
 labels: [bug]
 body:
   - type: textarea
@@ -12,13 +12,13 @@ body:
     id: stage
     attributes:
       label: Which stage?
-      description: e.g. watching the reference, scaffolding, npm install, audio build, render
+      description: e.g. scan, watch, check, adapt, compile, voice, audio, render, qa
     validations: {required: true}
   - type: textarea
     id: repro
     attributes:
       label: Steps to reproduce
-      description: Include the reference URL if the problem is in the analysis step.
+      description: Include the inspiration URL if the problem is in the watch step, and the relevant file from promo/ (timeline.json, qa-report.md).
       value: |
         1.
         2.

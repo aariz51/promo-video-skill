@@ -1,0 +1,6 @@
+[0:00.6] It reads your repository, and directs its launch film.
+[0:12.6] Point it at your code. Add a film you admire, if you have one.
+[0:21.4] It watches that film frame by frame, and writes down how it was made.
+[0:30.6] Copy seven words from it, and the check fails.
+[0:39.4] Its structure, rescaled to your story. Every fact, from your repository.
+[1:02.2] Borrow the grammar. Keep your own story.

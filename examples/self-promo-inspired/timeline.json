@@ -1,0 +1,107 @@
+{
+  "version": 1,
+  "product": "promo-video",
+  "source": "inspiration",
+  "seed": 11,
+  "style": { "preset": "paper", "accent": "#2F5BFF" },
+  "narration": { "enabled": true },
+  "scenes": [
+    {
+      "id": "hook", "kind": "wordzoom", "duration": 9, "source": "R1 R2 R3",
+      "purpose": "smallest-scale opening; the product's gesture is the edit; arrive in the brand ground",
+      "props": {
+        "line": "a skill that reads your repository",
+        "then": "and directs its launch film",
+        "word": "launch",
+        "name": "promo-video"
+      },
+      "narration": { "text": "It reads your repository, and directs its launch film.", "offset": 0.6 }
+    },
+    {
+      "id": "input", "kind": "terminal", "duration": 9, "source": "R5", "claims": ["C5"],
+      "purpose": "input before output: the repository, plus an optional film",
+      "transition": { "type": "push", "duration": 0.6 },
+      "props": {
+        "title": "your-product",
+        "lines": [
+          { "type": "cmd", "text": "promo init --inspiration https://youtu.be/…" },
+          { "type": "cmd", "text": "promo watch https://youtu.be/…" },
+          { "type": "out", "text": "0:26.7 · 23 frames · 2 cuts (avg shot 8.89 s)" },
+          { "type": "out", "text": "transcript: yes, 12 lines" },
+          { "type": "ok", "text": "Evidence: inspiration/evidence.json" }
+        ],
+        "caption": "Your code. A film you admire, if you have one."
+      },
+      "narration": { "text": "Point it at your code. Add a film you admire, if you have one.", "offset": 3.6 }
+    },
+    {
+      "id": "analysis", "kind": "document", "duration": 10, "source": "R6", "claims": ["C5", "C10"],
+      "purpose": "output in its real environment: the inspiration prompt writing itself",
+      "transition": { "type": "push", "duration": 0.6 },
+      "props": {
+        "title": "inspiration-analysis.md",
+        "source": "YOUTUBE INSPIRATIONAL PROMPT",
+        "sections": [
+          { "heading": "Hook analysis", "lines": ["0:00–0:05  a small line, selected, flown through"] },
+          { "heading": "Pacing", "lines": ["2 hard cuts · 8.9 s average shot"] },
+          { "heading": "Reusable creative rules", "lines": ["R1   Open at the smallest scale", "R4   Cut only on turns in the argument", "R14  Every motion is a user's gesture"] }
+        ],
+        "caption": "Watched, frame by frame."
+      },
+      "narration": { "text": "It watches that film frame by frame, and writes down how it was made.", "offset": 3.4 }
+    },
+    {
+      "id": "not-a-template", "kind": "compare", "duration": 9, "source": "R7 R4", "claims": ["C6"],
+      "purpose": "the turn: an inspiration is not a template, shown as a diagram",
+      "transition": { "type": "cut" },
+      "props": {
+        "title": "An inspiration is not a template.",
+        "left": { "title": "Never copied", "items": ["Its footage", "Its words", "Its logo"] },
+        "right": { "title": "Borrowed", "items": ["Pacing", "Transitions", "Rhythm of type"] },
+        "verdict": "The grammar travels. The footage stays."
+      },
+      "narration": { "text": "Copy seven words from it, and the check fails.", "offset": 2.6 }
+    },
+    {
+      "id": "difference", "kind": "flow", "duration": 10, "source": "R8 intent R14", "claims": ["C3", "C12"],
+      "purpose": "the difference: the film's structure, your product's facts",
+      "transition": { "type": "push", "duration": 0.6 },
+      "props": {
+        "title": "Structure from the film. Facts from the repo.",
+        "steps": [
+          { "label": "Inspirational prompt", "kind": "input", "lines": ["rules with timestamps"] },
+          { "label": "Product brief", "kind": "input", "lines": ["claims with sources"] },
+          { "label": "Product-specific prompt", "lines": ["scenes rescaled to the runtime"] },
+          { "label": "Original film", "kind": "result", "lines": ["this one"] }
+        ]
+      },
+      "narration": { "text": "Its structure, rescaled to your story. Every fact, from your repository.", "offset": 2.4 }
+    },
+    {
+      "id": "range", "kind": "montage", "duration": 7, "source": "R10 R4", "claims": ["C11"],
+      "purpose": "range once: a wall of real frames from this product's other film",
+      "transition": { "type": "cut" },
+      "props": {
+        "title": "Its other film, from the master framework.",
+        "layout": "grid",
+        "items": [
+          { "media": "film/02-title.jpg" }, { "media": "film/03-shape.jpg" }, { "media": "film/04-scan.jpg" },
+          { "media": "film/05-brief.jpg" }, { "media": "film/07-refuse.jpg" }, { "media": "film/10-silence.jpg" }
+        ]
+      }
+    },
+    {
+      "id": "proof", "kind": "screen", "duration": 6, "source": "R11 R13", "claims": ["C13"],
+      "purpose": "end on proof: push into one finished frame",
+      "transition": { "type": "zoom", "duration": 0.6 },
+      "props": { "media": "film/pipeline.png", "device": "none", "camera": "push", "focus": { "x": 0.5, "y": 0.5 } }
+    },
+    {
+      "id": "lockup", "kind": "lockup", "duration": 7, "source": "R11", "claims": ["C1"],
+      "purpose": "the name alone; the line; the command",
+      "transition": { "type": "fade", "duration": 0.6 },
+      "props": { "name": "promo-video", "line": "Borrow the grammar. Keep your own story.", "cta": "/promo-video", "small": "Open source · MIT" },
+      "narration": { "text": "Borrow the grammar. Keep your own story.", "offset": 2.2 }
+    }
+  ]
+}

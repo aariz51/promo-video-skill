@@ -5,8 +5,8 @@ body:
   - type: input
     id: ref
     attributes:
-      label: Reference video URL
-    validations: {required: true}
+      label: Inspiration video URL (or "none")
+    validations: {required: false}
   - type: input
     id: result
     attributes:

@@ -1,0 +1,9 @@
+{
+  "product": {
+    "root": "../..",
+    "name": "promo-video"
+  },
+  "inspiration": {
+    "url": "https://www.youtube.com/watch?v=9sMVY15d7BA"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "ok": true,
+  "issues": [],
+  "videos": {
+    "16:9": {
+      "file": "out/promo-16x9.mp4",
+      "bytes": 18427081,
+      "width": 1920,
+      "height": 1080,
+      "codec": "h264",
+      "fps": 30.0,
+      "duration": 67.051,
+      "audio": {
+        "codec": "aac",
+        "channels": 2
+      },
+      "meanVolume": -22.8,
+      "stills": [
+        "qa/frames/16x9/01-hook-a.jpg",
+        "qa/frames/16x9/01-hook-b.jpg",
+        "qa/frames/16x9/02-input-a.jpg",
+        "qa/frames/16x9/02-input-b.jpg",
+        "qa/frames/16x9/03-analysis-a.jpg",
+        "qa/frames/16x9/03-analysis-b.jpg",
+        "qa/frames/16x9/04-not-a-template-a.jpg",
+        "qa/frames/16x9/04-not-a-template-b.jpg",
+        "qa/frames/16x9/05-difference-a.jpg",
+        "qa/frames/16x9/05-difference-b.jpg",
+        "qa/frames/16x9/06-range-a.jpg",
+        "qa/frames/16x9/06-range-b.jpg",
+        "qa/frames/16x9/07-proof-a.jpg",
+        "qa/frames/16x9/07-proof-b.jpg",
+        "qa/frames/16x9/08-lockup-a.jpg",
+        "qa/frames/16x9/08-lockup-b.jpg"
+      ]
+    }
+  },
+  "narrationLines": 6,
+  "voiceEngine": "openrouter"
+}
