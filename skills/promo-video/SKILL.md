@@ -6,8 +6,8 @@ description: >-
   (YouTube, another video URL, or a local file) it measures that video's scenes, transitions
   and motion and rebuilds that structure around the product. Renders with Remotion in
   1920×1080, 1080×1920, 1080×1080 and the App Store sizes 886×1920 / 1920×886. Voice-over plus
-  sound effects, effects only, or silent: never background music. Every film is verified
-  frame by frame before delivery. Use when the user asks for a promo video, launch film,
+  sound effects, effects only, or silent: never background music. Every film is decoded
+  and measured against its plan before delivery. Use when the user asks for a promo video, launch film,
   product video, App Store preview, or "a promo like <URL>".
 license: MIT
 compatibility: >-

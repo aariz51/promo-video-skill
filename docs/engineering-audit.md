@@ -140,3 +140,13 @@ Tracked with status and evidence in [`implementation-checklist.md`](implementati
 7. Animation/frame tests and render integration tests for both modes.
 8. Deliverables, docs, CI.
 9. Final regression, report, push.
+
+## 10. Outcome (2026-10-21)
+
+Every gap G1–G17 is closed, each with test evidence: see
+[`implementation-checklist.md`](implementation-checklist.md) (every row PASS, with evidence) and
+[`TEST_REPORT.md`](TEST_REPORT.md) (what was executed, the full-resolution films, CI, and what
+was not exercised). Testing exposed further defects beyond this audit (translucent ground,
+late Mode B transitions, portrait cropping, analyzer weaknesses on dark footage, and an
+ffmpeg incompatibility in the upstream `watch` skill). They are fixed or worked around, and
+listed in the test report.

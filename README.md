@@ -5,8 +5,8 @@
 Run `/promo-video` in a product's repository. The agent works out what the product does and
 which moments are worth showing. Give it a reference video and it measures that video scene
 by scene and rebuilds its structure around your product; give it none and it directs the
-film itself. It renders with [Remotion](https://remotion.dev) and then checks the encoded
-film frame by frame before handing it over.
+film itself. It renders with [Remotion](https://remotion.dev), then decodes the film and
+measures it against the plan before handing it over.
 
 | You give | You get |
 |---|---|
@@ -155,7 +155,8 @@ calls a paid API. See [`docs/TEST_REPORT.md`](docs/TEST_REPORT.md) for the lates
 
 - Pixel analysis reads a fade into an empty frame like a text reveal, and a push like a camera
   pan; it takes the simpler reading. CREATIVE_DIRECTION.md is where the agent corrects that from
-  the frames.
+  the frames. QA verifies cuts, fades, wipe directions and dip colours in the film; a push's
+  direction is not verified.
 - claude-video `watch` 0.2.0 passes `-vsync`, which ffmpeg 7+ removed, so its frame extraction
   fails there. `promo watch` keeps its transcript, measures the frames itself, and records it.
 

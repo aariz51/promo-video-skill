@@ -77,7 +77,7 @@ so they stay frame-accurate. Never import `cube-motion` directly in a scene.
 - Pixel analysis cannot separate a fade into an *empty* frame from a text reveal, or a
   classic push from a camera pan; these read as the simpler interpretation. A sparse, dark
   wipe can fall below a blind pass's threshold; the planned-window check in QA still
-  measures it.
+  measures it. QA accepts a `push` as any blend or wipe, so a push's direction is not verified.
 - The installed claude-video `watch` 0.2.0 passes `-vsync`, which ffmpeg 7+ removed; its
   frame extraction fails there. `promo watch` then keeps its transcript and measures the
   frames itself, and the evidence says so.
