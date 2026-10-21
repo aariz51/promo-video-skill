@@ -117,7 +117,7 @@ def run(ws: Workspace, *, launch: bool = True, url: str | None = None, routes: l
             lim = [] if s["finding"] == "renders" else [s["finding"]]
             add(s["path"], sid=f"web-{slug(s['route'])}", platform="web", screen=s["title"] or s["route"],
                 route=s["route"], source="captured", state=row.get("finding"), limitations=lim,
-                feature=None)
+                feature=s.get("heading"))  # what the screen shows, in the product's own words
     mob = {"status": "not-applicable", "limitations": []}
     if platforms and inspect_mobile:
         if launch:
@@ -128,7 +128,8 @@ def run(ws: Workspace, *, launch: bool = True, url: str | None = None, routes: l
         for s in mob.get("shots", []):
             add(s["path"], sid=f"{(mob.get('device') or {}).get('platform', 'mobile')}-{slug(s['screen'])}",
                 platform=(mob.get("device") or {}).get("platform", mob.get("platform") or "mobile"),
-                screen=s["screen"], route=s.get("route"), source="captured", state="renders")
+                screen=s["screen"], route=s.get("route"), source="captured", state="renders",
+                feature=f"{s['screen']} screen" if s.get("route") not in (None, "/") else "launch screen")
     # Screenshots already in the repository (or handed over by the user) are genuine but not captured here.
     repo_shots = [root / a["path"] for a in (scan.get("assets") or {}).get("screenshots", [])]
     for src in repo_shots + [Path(p) for p in (supplied or [])]:

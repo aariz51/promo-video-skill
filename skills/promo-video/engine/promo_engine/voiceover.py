@@ -184,7 +184,7 @@ def tts_openai(text, voice, direction, dest):
     res = run(["curl", "-sS", "--max-time", "120", "-X", "POST", OA_SPEECH, "--config", "-",
                "-H", "Content-Type: application/json", "--data-binary", json.dumps(body), "-o", raw],
               input=_curl_auth(key))
-    data = open(raw, "rb").read() if os.path.exists(raw) else b""
+    data = Path(raw).read_bytes() if os.path.exists(raw) else b""
     if not data.startswith(b"RIFF"):
         if os.path.exists(raw):
             os.remove(raw)

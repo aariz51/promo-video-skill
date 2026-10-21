@@ -280,8 +280,9 @@ def collect_fonts(root: Path) -> dict:
                 sources.setdefault(m.group(2), f"{rel}:{_line_of(text, m.start())} (tailwind {m.group(1)})")
     pub = root / "pubspec.yaml"
     if pub.is_file():
-        text = pub.read_text(errors="replace")
-        for m in re.finditer(r"-\s*family\s*:\s*([^\n]+)", text):
+        # YAML comments are not declarations (flutter create ships commented-out font examples).
+        text = re.sub(r"(?m)^\s*#.*$", "", pub.read_text(errors="replace"))
+        for m in re.finditer(r"-\s*family\s*:\s*([^\n#]+)", text):
             families[m.group(1).strip()] += 3
             sources.setdefault(m.group(1).strip(), f"pubspec.yaml:{_line_of(text, m.start())}")
     files = [p.relative_to(root).as_posix() for p in walk(root) if p.suffix.lower() in FONT_EXT]
@@ -450,6 +451,8 @@ def adapt(original: dict, fonts: dict) -> dict:
     head = fonts["families"][0]["family"] if fonts["families"] else None
     if head and (not family or family["family"] != head):
         notes.append(f"the product's font {head} has no font file in the repository; Inter is used instead")
+    elif not head:
+        notes.append("the product declares no font of its own (platform default); Inter is used for the film's type")
     return {
         "mode": mode, "preset": "graphite" if dark else "paper", "dark": dark,
         "ground": ground, "ground2": surface if surface and surface != ground else mix(ground, ink, 0.06),

@@ -63,4 +63,4 @@ Audit: [engineering-audit.md](engineering-audit.md). Run evidence: [TEST_REPORT.
 | DISC-12 | Mode B E2E: reference transitions kept, product theme and real screens carried | tests/test_render.py | `ReferenceFilm.test_the_product_theme_and_real_screens_carry_the_reference_structure`, QA reference check | PASS | |
 | DISC-13 | Delivery includes the discovery reports, selected screenshots and the product font in the editable project | deliver.py | `AutonomousFilm.test_delivery_is_complete_and_the_project_is_editable` | PASS | |
 | DISC-14 | SKILL.md and docs describe the stage | SKILL.md, README, docs/ | `CommandDiscovery` (discover before direction and storyboard; artifacts named) | PASS | |
-| DISC-15 | CI runs the new tests | .github/workflows/ci.yml | | IN_PROGRESS | |
+| DISC-15 | CI runs the new tests | .github/workflows/ci.yml | CI run 39651890057 on 1edc37d green on Linux incl. live web-app tests (engine 168 tests OK; render job 15 OK); final commit's run pending | IN_PROGRESS |  |

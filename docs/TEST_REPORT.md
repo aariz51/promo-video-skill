@@ -92,3 +92,80 @@ on commit `3d29db7` (Ubuntu 24.04, ffmpeg 6.1, Python 3.12, Node 20): all three 
 
 The first CI run (`39636085349`, commit `3de7b92`) failed: three audio tests assumed macOS
 `say`. Fixed in `3d29db7`.
+
+---
+
+# Follow-up: product-theme discovery and real screenshots (2026-10-22)
+
+Branch `feat/production-system`, starting from `42394b3` (verified on arrival: clean tree, synced,
+CI green, 137 tests passing).
+
+## What executed
+
+| Command | Result |
+|---|---|
+| `python3 -m unittest discover -s tests` (baseline, before changes) | 137 tests OK (13 render tests skipped) |
+| `PROMO_RENDER=1 PROMO_MOBILE=1 python3 -m unittest discover -s tests` (final, after the last code change) | 172 tests, **OK**, none skipped, 0 resource warnings (8 min 25 s) |
+| `npx tsc --noEmit` (renderer) | exit 0 |
+| `python3 examples/verification/build.py` (final code) | three films, QA PASS each (below) |
+| GitHub Actions | see CI below |
+
+New tests: `test_discovery.py` (32), `test_render.py` +3 (`test_discovery_drove_the_film`,
+`test_the_product_theme_and_real_screens_carry_the_reference_structure`, `RealSimulator`).
+None of the 137 earlier tests was removed or weakened. Their fixtures now run the discovery
+stage the way the pipeline does, and the fixture timeline no longer forces a dark preset onto
+the light fixture product.
+
+## Real product inspection that ran
+
+| Target | What happened |
+|---|---|
+| Web fixture app (Node server, light/dark tokens, Inter font file) | `npm run dev` launched. `/` and `/reports` render and were captured at 1920×1080 with headless Chrome. `/team` was recorded as HTTP 404 and `/admin` as a login wall, neither captured. `/settings` was held back as possible account data. |
+| Broken web fixture (exits, prints a credential) | blocked at "dev server startup"; diagnostic kept with the credential scrubbed (report and `build/launch.log`) |
+| Port held by another app | not used, not stopped; blocked with a reason |
+| Real Flutter iOS app (`flutter create`, theme, 3 routes) | built with `flutter build ios --simulator` and installed on promo's own simulator (created, then deleted). `/history` and `/result` reached by relaunching with `--route`. Three distinct 1206×2622 captures, inspected visually. |
+| Android | no emulator is installed on this machine: reported as `blocked` at device discovery (mocked tests cover the build/launch/capture path) |
+
+## Verification films (final code, generated locally, not committed)
+
+| Film | Discovery | Screens in the film | Theme | Encoded file | QA |
+|---|---|---|---|---|---|
+| `examples/verification/autonomous/deliver/videos/promo-16x9.mp4` (+ `promo-store-portrait.mp4`, 886×1920) | web app launched and captured | `web-reports` (real `/reports`), callout on its real Export CSV button | light `#F7F5F0`, brand `#1F8A70`, Inter from the product; pixels agree | 1920×1080, 30 fps, 15.5 s, aac, voice-over (`say`) + effects | PASS |
+| `examples/verification/reference/deliver/videos/promo-16x9.mp4` | web app launched and captured; synthetic dark reference measured | `web-home` in S02, `web-reports` in S03 | product theme kept over the reference's navy/orange/green fields | 1920×1080, 10.0 s, effects only; dissolve / wipe-left / dip-black measured in the film | PASS |
+| `examples/verification/autonomous-mobile/deliver/videos/promo-9x16.mp4` | Flutter app built and captured on the simulator | `ios-result` in a phone frame | light, brand `#1F8A70`; the app declares no font (stated; Inter used) | 1080×1920, 15.5 s, effects only | PASS |
+
+Each `deliver/` holds the video(s), PRODUCT_ANALYSIS.md, THEME_ANALYSIS.md, THEME.json,
+ASSET_INVENTORY.md, SCREENSHOT_MANIFEST.json, the selected screenshots, CREATIVE_DIRECTION.md, the
+reports and an editable Remotion project carrying the product's font.
+
+## Defects found by running for real, and fixed
+
+1. **False pass on mobile navigation.** `simctl openurl` raised iOS's "Open in …?" prompt; the
+   first real run captured the prompt twice and reported both captures as rendered routes. A
+   visual check found it. Navigation now uses Flutter's `--route` launch argument and never
+   `openurl` on iOS. A warm-up launch and stable-capture rule keep first-boot banners and
+   unsettled animations out, and a capture identical to one already taken is recorded as "did
+   not navigate".
+2. The capture simulator was being created from an iPhone type the runtime doesn't support, and
+   that failure was hidden behind the Android message.
+3. A commented-out font in `pubspec.yaml` was reported as the product's font.
+4. The launch log kept a credential the server printed (now scrubbed).
+5. QA's edge check assumed a dark film; it now compares edges with the film's own ground.
+6. A wipe whose outgoing scene keeps animating read as "gradual". A wipe is now recognised by
+   its revealed side showing the incoming picture.
+7. Light UIs looked like near-duplicates of each other (mean brightness); duplicates are now
+   judged by structure. 320 px screenshots were being selected; they are now rejected as too small.
+8. Primary-colour corroboration sampled too coarsely to see buttons.
+9. The ejected Remotion project lacked the product's font; the delivery lacked the new reports
+   and screenshots.
+10. The manifest's `feature` field was always empty; it now holds the screen's own heading.
+11. Unclosed file and HTTP handles.
+
+## Not exercised
+
+- A real Android build and capture: no emulator is installed here (`emulator` is missing; `adb`
+  is present with no devices). The path is covered with a mocked toolchain.
+- Native iOS (non-Flutter) apps: tested through mocks. Their extra screens cannot be reached
+  unattended (custom-scheme links need a person to confirm), and the report says so.
+- Authenticated screens: no test credentials exist for the fixture, and none were used.
+- The user's own products: none was named for this task, so verification used fixtures.

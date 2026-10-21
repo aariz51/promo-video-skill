@@ -160,6 +160,8 @@ class WebApp(unittest.TestCase):
                         "source", "feature", "state", "limitations", "approved", "reason"):
                 self.assertIn(key, s)
             self.assertEqual((s["platform"], s["product"]), ("web", "Tallyboard"))
+        by = {s["id"]: s for s in captured}
+        self.assertEqual(by["web-reports"]["feature"], "$2,418.60 this month", "the screen's own heading names it")
 
     def test_selection_prefers_the_valuable_screens(self):
         by = {s["id"]: s for s in self.m["screenshots"]}
@@ -324,7 +326,8 @@ def flutter_app(root: Path, *, deep_links=True) -> Path:
     (root / "lib").mkdir(parents=True)
     (root / "ios" / "Runner").mkdir(parents=True)
     (root / "android" / "app").mkdir(parents=True)
-    (root / "pubspec.yaml").write_text("name: tallyboard\nflutter:\n  uses-material-design: true\n  fonts:\n"
+    (root / "pubspec.yaml").write_text("name: tallyboard\nflutter:\n  uses-material-design: true\n"
+                                       "  # fonts:\n  #   - family: Schyler\n  fonts:\n"
                                        "    - family: Nunito\n      fonts:\n        - asset: fonts/Nunito.ttf\n")
     (root / "lib" / "main.dart").write_text(
         "final theme = ThemeData(brightness: Brightness.light, colorScheme: ColorScheme.light(\n"
@@ -463,7 +466,9 @@ class MobileApp(unittest.TestCase):
         pal = res["theme"]["original"]["modes"]
         self.assertEqual(pal["light"]["primary"]["value"], "#1F8A70")
         self.assertEqual(pal["dark"]["background"]["value"], "#0F1412")
-        self.assertEqual(res["theme"]["typography"]["families"][0]["family"], "Nunito")
+        self.assertEqual([f["family"] for f in res["theme"]["typography"]["families"]], ["Nunito"],
+                         "a commented-out font in pubspec.yaml is not the product's font")
+        self.assertEqual({s["id"]: s["feature"] for s in ios}["ios-history"], "history screen")
 
 
 # ── D. theme discovery across stacks ────────────────────────────────────────────────

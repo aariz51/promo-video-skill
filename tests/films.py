@@ -53,10 +53,19 @@ def complete_creative_prompt(scaffold: str) -> str:
     return out
 
 
+# Where the real "Export CSV" button sits in each captured screen (measured from the captures):
+# a callout must point at the thing it names.
+EXPORT_BUTTON = {"web-reports": (0.055, 0.466), "ios-result": (0.216, 0.49)}
+
+
 def with_real_screen(tl: dict, shot: str) -> dict:
-    """The compact film with its device scene showing a genuine captured screen, by manifest id."""
+    """The compact film with its device scene showing a genuine captured screen, by manifest id,
+    and its callout on the real button."""
     import json
     out = json.loads(json.dumps(tl))
     scene = next(s for s in out["scenes"] if s["kind"] == "screen")
     scene["props"]["media"] = f"shot:{shot}"
+    x, y = EXPORT_BUTTON[shot]
+    scene["props"]["callouts"] = [{"x": x, "y": y, "label": "Export CSV"}]
+    scene["props"]["focus"] = {"x": 0.3, "y": 0.45}
     return out

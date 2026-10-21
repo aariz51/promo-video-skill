@@ -69,7 +69,7 @@ def screenshot(chrome: str, url: str, dest: Path, size: tuple[int, int], budget_
 def capture(ws: Workspace, *, url: str | None, routes: list[str], size: str = "desktop",
             launch: bool = False, launch_cmd: str | None = None, cwd: Path | None = None) -> list[Path]:
     chrome = find_chrome()
-    proc = None
+    proc, fh = None, None
     log = ws.root / "build" / "launch.log"
     try:
         if launch:
@@ -101,6 +101,9 @@ def capture(ws: Workspace, *, url: str | None, routes: list[str], size: str = "d
                 os.killpg(proc.pid, signal.SIGTERM)
             except ProcessLookupError:
                 pass
+        if fh:
+            fh.close()
+        _scrub_log(log)
 
 
 # ── live inspection of a web product (PRODUCT_THEME_DISCOVERY) ─────────────────────
@@ -122,7 +125,8 @@ def http_probe(url: str, timeout: float = 8) -> dict:
             body = res.read(400_000).decode(errors="replace")
             return {"status": res.status, "final": res.geturl(), "body": body}
     except urllib.error.HTTPError as exc:
-        return {"status": exc.code, "final": exc.geturl() or url, "body": ""}
+        with exc:
+            return {"status": exc.code, "final": exc.geturl() or url, "body": ""}
     except (urllib.error.URLError, ConnectionError, TimeoutError, OSError) as exc:
         return {"status": None, "final": url, "body": "", "error": str(exc)[:200]}
 
@@ -143,7 +147,9 @@ def read_dom(html: str) -> dict:
             for m in re.findall(r"<(?:button|a)\b[^>]*>(.*?)</(?:button|a)>", html, re.S | re.I)]
     assets = re.findall(r"<(?:img|script|link)\b[^>]*(?:src|href)=['\"]([^'\"]+)['\"]", html, re.I)
     errors = sorted({m.group(0) for m in ERROR_SIGNS.finditer(text)})
+    head = re.search(r"<h1\b[^>]*>(.*?)</h1>", html, re.S | re.I) or re.search(r"<h2\b[^>]*>(.*?)</h2>", html, re.S | re.I)
     return {"title": html_unescape(title.group(1).strip()) if title else None, "textLength": len(text),
+            "heading": html_unescape(" ".join(re.sub(r"<[^>]+>", " ", head.group(1)).split())) if head else None,
             "text": text[:600], "ctas": [c for c in ctas if 1 < len(c) < 40][:12],
             "assets": [a for a in assets if not a.startswith(("data:", "http://", "https://", "//", "#"))][:40],
             "errors": errors, "images": len(re.findall(r"<img\b", html, re.I))}
@@ -193,7 +199,7 @@ def inspect_web(ws: Workspace, *, product_root: Path, plan: dict, url: str | Non
         report.update(status="blocked", stage="browser")
         report["limitations"].append(str(exc))
         return report
-    proc, log = None, ws.root / "build" / "launch.log"
+    proc, log, fh = None, ws.root / "build" / "launch.log", None
     try:
         up = http_probe(url).get("status") is not None
         if up:
@@ -243,7 +249,8 @@ def inspect_web(ws: Workspace, *, product_root: Path, plan: dict, url: str | Non
                 report["limitations"].append(f"{r}: behind a login; not captured (no test account was provided)")
                 continue
             dom = read_dom(dump_dom(chrome, full))
-            row.update(title=dom["title"], textLength=dom["textLength"], ctas=dom["ctas"], errors=dom["errors"])
+            row.update(title=dom["title"], heading=dom["heading"], textLength=dom["textLength"], ctas=dom["ctas"],
+                       errors=dom["errors"])
             broken = []
             for a in dom["assets"][:20]:
                 st = http_probe(urljoin(full, a)).get("status")
@@ -262,7 +269,8 @@ def inspect_web(ws: Workspace, *, product_root: Path, plan: dict, url: str | Non
             try:
                 screenshot(chrome, full, dest, SIZES[size])
                 row["shot"] = dest
-                report["shots"].append({"path": dest, "route": r, "title": dom["title"], "finding": row["finding"]})
+                report["shots"].append({"path": dest, "route": r, "title": dom["title"], "heading": dom["heading"],
+                                        "finding": row["finding"]})
             except PromoError as exc:
                 row["finding"] += f"; capture failed: {exc}"
             report["routes"].append(row)
@@ -273,7 +281,6 @@ def inspect_web(ws: Workspace, *, product_root: Path, plan: dict, url: str | Non
             report["limitations"].append("no route rendered cleanly")
         return report
     finally:
-        _scrub_log(log)
         if proc and proc.poll() is None:
             try:
                 os.killpg(proc.pid, signal.SIGTERM)
@@ -283,6 +290,9 @@ def inspect_web(ws: Workspace, *, product_root: Path, plan: dict, url: str | Non
                     os.killpg(proc.pid, signal.SIGKILL)
                 except ProcessLookupError:
                     pass
+        if fh:
+            fh.close()
+        _scrub_log(log)
 
 
 def _scrub_log(log: Path) -> None:

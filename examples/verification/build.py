@@ -1,14 +1,19 @@
-"""Build the two verification films at final quality, end to end through the CLI.
+"""Build the three verification films at final quality, end to end through the CLI.
 
     python3 examples/verification/build.py
 
-Mode A (autonomous): the Tallyboard fixture product, voice-over (macOS `say`, keyless) +
-effects, 1920×1080 and 886×1920. Mode B (reference-driven): the same product rebuilt on the
-synthetic `slow` reference (dissolve, wipe, dip), effects only, 1920×1080.
+Every film starts with `promo discover` against a real, running product:
+
+  autonomous         Mode A · the Tallyboard web app (Node), launched and captured · voice-over
+                     (macOS `say`, keyless) + effects · 1920×1080 and 886×1920
+  reference          Mode B · the same web app on the synthetic `slow` reference (dark colour
+                     fields; dissolve, wipe, dip) · effects only · 1920×1080
+  autonomous-mobile  Mode A · a real Flutter iOS app built and captured on promo's own simulator
+                     · effects only · 1080×1920 (skipped, and said so, without Flutter / Xcode)
 
 The agent's creative work (brief, creative prompt, direction text, scene content) comes from
 the test fixtures, standing in for what the agent writes; everything else is the real
-pipeline. Generated: `tallyboard/` (fixture product), `reference.mp4`, and each workspace's
+pipeline. Generated: `tallyboard/` (fixture web app), `tallyboard-app/` (fixture Flutter app), `reference.mp4`, and each workspace's
 `out/`, `build/` and `deliver/` (git-ignored). The text artifacts and reports are committed.
 """
 from __future__ import annotations
@@ -42,7 +47,7 @@ def product() -> Path:
     prod = HERE / "tallyboard"
     if prod.exists():
         shutil.rmtree(prod)
-    return helpers.make_product(prod)
+    return helpers.make_web_product(prod, helpers.free_port())
 
 
 def stage_assets(ws: Workspace, prod: Path) -> None:
@@ -58,14 +63,14 @@ def autonomous(prod: Path) -> Workspace:
     run(*w, "init", "--product", prod, "--name", "Tallyboard", "--reference", "none", "--audio", "voiceover",
         "--provider", provider, "--formats", "16:9", "store-portrait", "--runtime", "10-20")
     stage_assets(ws, prod)
-    run(*w, "scan")
+    run(*w, "discover", "--no-mobile")
     run(*w, "check", "brief")
     if ws.creative.exists():
         ws.creative.unlink()
     run(*w, "adapt")
     ws.creative.write_text(films.complete_creative_prompt(ws.creative.read_text()))
     run(*w, "check", "creative")
-    ws.timeline.write_text(json.dumps(films.COMPACT, indent=2))
+    ws.timeline.write_text(json.dumps(films.with_real_screen(films.COMPACT, "web-reports"), indent=2))
     run(*w, "check", "timeline")
     run(*w, "build")  # final quality
     run(*w, "deliver")
@@ -80,7 +85,7 @@ def reference_driven(prod: Path) -> Workspace:
     run(*w, "init", "--product", prod, "--name", "Tallyboard", "--reference", ref, "--audio", "effects",
         "--formats", "16:9")
     stage_assets(ws, prod)
-    run(*w, "scan")
+    run(*w, "discover", "--no-mobile")
     run(*w, "watch", "--no-whisper", "--refresh")
     run(*w, "direction", "--force")
     ws.direction.write_text(fill_direction(ws.direction.read_text(), direction.load_breakdown(ws)))
@@ -93,9 +98,44 @@ def reference_driven(prod: Path) -> Workspace:
     return ws
 
 
+def autonomous_mobile() -> Workspace | None:
+    if not (shutil.which("flutter") and shutil.which("xcrun")):
+        print("autonomous-mobile: skipped (needs Flutter and Xcode simulators)")
+        return None
+    app = HERE / "tallyboard-app"
+    if app.exists():
+        shutil.rmtree(app)
+    root = helpers.make_flutter_product(app)
+    ws = Workspace.at(HERE / "autonomous-mobile")
+    w = ["-w", ws.root]
+    run(*w, "init", "--product", root, "--name", "Tallyboard", "--reference", "none", "--audio", "effects",
+        "--formats", "9:16", "--runtime", "10-20")
+    main_dart = (root / "lib" / "main.dart").read_text().splitlines()
+    line = lambda needle: next(i for i, t in enumerate(main_dart, 1) if needle in t)  # noqa: E731
+    history = "'/history'"
+    brief = helpers.BRIEF.split("## FACTUAL CLAIMS")[0] + (
+        "## FACTUAL CLAIMS\n\n"
+        f"- C1: Totals are grouped by category — source: lib/main.dart:{line('Travel · Food')}\n"
+        f"- C2: The month exports as CSV — source: lib/main.dart:{line('Export CSV')}\n"
+        f"- C3: Past months stay in a history — source: lib/main.dart:{line(history)}\n\n"
+        "## RESTRICTIONS\n\nDemo data only; no real receipts.\n")
+    ws.brief.write_text(brief)
+    run(*w, "check", "brief")
+    run(*w, "discover")
+    tl = films.with_real_screen(films.COMPACT, "ios-result")
+    next(s for s in tl["scenes"] if s["kind"] == "screen")["props"]["device"] = "phone"
+    ws.timeline.write_text(json.dumps(tl, indent=2))
+    run(*w, "check", "timeline")
+    run(*w, "build")
+    run(*w, "deliver")
+    return ws
+
+
 if __name__ == "__main__":
     p = product()
-    for ws in (autonomous(p), reference_driven(p)):
+    for ws in (autonomous(p), reference_driven(p), autonomous_mobile()):
+        if ws is None:
+            continue
         val = read_json(ws.qa_dir / "validation.json")
         print(f"{ws.root.name}: QA {val['result']} · " + ", ".join(
             f"{a} {v['width']}×{v['height']} {v['duration']}s" for a, v in val["videos"].items()))
