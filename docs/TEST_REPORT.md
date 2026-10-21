@@ -169,3 +169,10 @@ reports and an editable Remotion project carrying the product's font.
   unattended (custom-scheme links need a person to confirm), and the report says so.
 - Authenticated screens: no test credentials exist for the fixture, and none were used.
 - The user's own products: none was named for this task, so verification used fixtures.
+
+## CI (follow-up)
+
+All three jobs (engine tests, renderer typecheck, real renders) succeeded on each new commit:
+`1edc37d` run 39651890057, `9712526` run 39654110105, `e4b6597` run 39661128031. On Ubuntu the
+live web-app discovery tests run for real (Node fixture app + Chrome). The real-simulator test is
+macOS-only and opt-in (`PROMO_MOBILE=1`), so CI does not depend on a simulator.
