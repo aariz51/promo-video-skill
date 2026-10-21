@@ -1,29 +1,33 @@
 """Sound design: deterministic cues tied to on-screen events. No music, by construction.
 
-The library below is the complete set of sounds the mixer can use. Every file is a short
-effect; nothing melodic or long enough to act as a music bed is allowed in (QA re-checks
-the durations of whatever was mixed).
+The library below is the complete set of sounds the mixer can use: the effects synthesised
+by `sfx_synth.py` (original, no third-party samples). Every one is a short effect; nothing
+melodic or long enough to act as a music bed exists in it (QA re-checks the durations of
+whatever was mixed).
 """
 from __future__ import annotations
 
+from .sfx_synth import RECIPES
+
+# Effect name → what it is for. The sound itself is a recipe in sfx_synth.RECIPES.
 LIBRARY = {
-    "click": "click.mp3",      # a tap or cursor press
-    "pop": "pop.mp3",          # something lands
-    "pop2": "pop2.mp3",        # a lighter digital landing
-    "whoosh": "whoosh.mp3",    # a camera move or push transition
-    "chime": "chime.mp3",      # a result resolves
-    "type": "type.mp3",        # a keystroke
-    "tick": "tick.mp3",        # a line of output, a counter step
-    "tick2": "tick2.mp3",      # a softer tick
-    "drag": "drag.mp3",        # cards fanning out
-    "sparkle": "sparkle.mp3",  # a light shimmer on a reveal
-    "riser": "riser.mp3",      # tension into a reveal
-    "rise": "rise.mp3",        # a short lift
-    "thud": "thud.mp3",        # an impact on a freeze or landing
-    "kick": "kick.mp3",        # a low hit
-    "dive": "dive.mp3",        # a fall into detail
-    "ascent": "ascent.mp3",    # a rising resolve
-    "braam": "braam.mp3",      # a cinematic low impact
+    "click": "a tap or cursor press",
+    "pop": "something lands",
+    "pop2": "a lighter digital landing",
+    "whoosh": "a camera move or push transition",
+    "chime": "a result resolves",
+    "type": "a keystroke",
+    "tick": "a line of output, a counter step",
+    "tick2": "a softer tick",
+    "drag": "cards fanning out",
+    "sparkle": "a light shimmer on a reveal",
+    "riser": "tension into a reveal",
+    "rise": "a short lift",
+    "thud": "an impact on a freeze or landing",
+    "kick": "a low hit",
+    "dive": "a fall into detail",
+    "ascent": "a rising resolve",
+    "braam": "a cinematic low impact",
 }
 
 # Relative loudness of each role. Interaction sounds sit forward; atmosphere sits back.
@@ -32,6 +36,12 @@ LEVEL = {"click": 0.9, "type": 0.55, "tick": 0.5, "tick2": 0.45, "pop": 0.6, "po
          "kick": 0.6, "dive": 0.5, "ascent": 0.45, "drag": 0.5, "braam": 0.55}
 
 MAX_EFFECT_SECONDS = 6.0
+assert set(LIBRARY) == set(RECIPES), "every cue name needs a synthesis recipe"
+
+
+def source_name(fx: str) -> str:
+    """How an effect is recorded in the audio manifest (and allow-listed by QA)."""
+    return f"sfx/{fx}.wav"
 
 
 def cue(fx: str, at: float, vol: float | None = None, scene: str | None = None, why: str = "") -> dict:

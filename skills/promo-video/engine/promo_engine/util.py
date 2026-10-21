@@ -12,8 +12,20 @@ from typing import Any, Sequence
 SKILL_DIR = Path(__file__).resolve().parents[2]
 RENDERER_DIR = SKILL_DIR / "renderer"
 FRAMEWORK_DIR = SKILL_DIR / "framework"
-SFX_DIR = RENDERER_DIR / "public" / "sfx"
 FONTS_DIR = RENDERER_DIR / "public" / "fonts"
+
+
+SECRET_VARS = ("OPENROUTER_API_KEY", "OPENAI_API_KEY", "OPENROUTER_KEY", "OPENAI_KEY", "GROQ_API_KEY")
+
+
+def redact(text: str) -> str:
+    """Replace any configured API key value that appears in `text` (defence in depth:
+    keys are never put into commands, files or messages in the first place)."""
+    for var in SECRET_VARS:
+        v = (os.environ.get(var) or "").strip()
+        if len(v) >= 8:
+            text = text.replace(v, f"<{var}>")
+    return text
 
 
 class PromoError(Exception):
@@ -25,7 +37,7 @@ class PromoError(Exception):
         self.code = code
 
     def render(self) -> str:
-        return f"error: {self}" + (f"\n  → {self.hint}" if self.hint else "")
+        return redact(f"error: {self}" + (f"\n  → {self.hint}" if self.hint else ""))
 
 
 @dataclass

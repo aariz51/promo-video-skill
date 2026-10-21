@@ -414,6 +414,8 @@ class RenderFailures(unittest.TestCase):
         npx.write_text("#!/bin/sh\necho 'Error: Composition Promo16x9 crashed at frame 812' >&2\nexit 1\n")
         npx.chmod(npx.stat().st_mode | stat.S_IEXEC)
         env = {"PATH": f"{bindir}{os.pathsep}{os.environ['PATH']}"}
+        self.env.ws.master_audio.parent.mkdir(parents=True, exist_ok=True)
+        self.env.ws.master_audio.write_bytes(b"RIFF")  # the audio step ran; only the renderer fails
         with mock.patch.object(render, "RENDERER_DIR", fake), mock.patch.dict(os.environ, env):
             with self.assertRaises(PromoError) as cm:
                 render.render(self.env.ws, "16:9")
@@ -454,11 +456,15 @@ class QualityAssurance(unittest.TestCase):
         self.env.close()
 
     def _video(self, name, size="1920x1080", dur=4, rate=30, audio=True):
+        """audio=True: one 0.3 s effect at 1.0 s (matches `pop` in MANIFEST); "noise": a bed."""
         out = self.env.ws.out_dir / name
         out.parent.mkdir(parents=True, exist_ok=True)
         args = ["-f", "lavfi", "-i", f"testsrc2=s={size}:d={dur}:r={rate}"]
-        if audio:
+        if audio == "noise":
             args += ["-f", "lavfi", "-i", f"anoisesrc=d={dur}:a=0.2:seed=1", "-c:a", "aac", "-shortest"]
+        elif audio:
+            args += ["-f", "lavfi", "-i", f"sine=f=660:d=0.3,adelay=1000|1000,apad=whole_dur={dur}",
+                     "-c:a", "aac", "-shortest"]
         ffmpeg(*args, "-pix_fmt", "yuv420p", "-c:v", "libx264", "-preset", "ultrafast", str(out))
         return out
 
@@ -478,13 +484,17 @@ class QualityAssurance(unittest.TestCase):
         ffmpeg("-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo:d=4", *extra, str(self.env.ws.master_audio))
         return self.env.ws.master_audio
 
+    MANIFEST = {"music": False, "sources": [{"kind": "sfx", "source": "sfx/pop.wav", "at": 1.0, "seconds": 0.3}]}
+
     def test_background_music_is_detected(self):
-        manifest = {"music": False, "sources": [{"kind": "sfx", "source": "sfx/pop.mp3", "at": 1.0, "seconds": 0.3}]}
+        manifest = self.MANIFEST
         clean = self._master(["-f", "lavfi", "-i", "sine=f=660:d=0.3", "-filter_complex", "[1]adelay=1000|1000[b];[0][b]amix=inputs=2:normalize=0"])
         self.assertTrue(qa.check_no_music(manifest, clean, self.rc).ok)
         bed = self._master(["-f", "lavfi", "-i", "sine=f=220:d=4", "-filter_complex", "[0][1]amix=inputs=2:normalize=0"])
         self.assertIn("possible bed/music", qa.check_no_music(manifest, bed, self.rc).summary())
         bad = {"music": False, "sources": [{"kind": "sfx", "source": "sfx/track.mp3", "at": 0, "seconds": 45.0}]}
+        # The encoded film is checked too: a bed muxed after the mix is still caught.
+        self.assertIn("possible bed/music", qa.check_no_music(manifest, self._video("bed.mp4", audio="noise"), self.rc).summary())
         msgs = qa.check_no_music(bad, clean, self.rc).summary()
         self.assertIn("unknown effect source", msgs)
         self.assertIn("long files can carry music", msgs)
@@ -498,14 +508,19 @@ class QualityAssurance(unittest.TestCase):
 
     def test_full_qa_writes_the_report(self):
         self._video("promo-16x9.mp4")
-        self._master([])
-        write_json(self.env.ws.root / "build" / "audio-manifest.json", {"music": False, "sources": []})
+        self._master(["-f", "lavfi", "-i", "sine=f=660:d=0.3", "-filter_complex", "[1]adelay=1000|1000[b];[0][b]amix=inputs=2:normalize=0"])
+        write_json(self.env.ws.root / "build" / "audio-manifest.json", self.MANIFEST)
         self.env.ws.vo_dir.mkdir(parents=True, exist_ok=True)
         write_json(self.env.ws.vo_dir / "manifest.json", {"engine": "say", "lines": [{"at": 0.5, "seconds": 1.0, "scene": "hook"}]})
         rep = qa.run_qa(self.env.ws, {"16:9": self.env.ws.out_dir / "promo-16x9.mp4"})
         self.assertTrue(rep.ok, rep.summary())
         report = self.env.ws.qa_report.read_text()
+        self.assertEqual(self.env.ws.qa_report.name, "TEST_REPORT.md")
         self.assertIn("Result: **PASS**", report)
+        val = read_json(self.env.ws.qa_dir / "validation.json")
+        self.assertEqual(val["result"], "PASS")
+        self.assertEqual({c["id"]: c["status"] for c in val["checks"]},
+                         {"render": "PASS", "encoding": "PASS", "timeline": "PASS", "narration": "PASS", "audio": "PASS"})
         self.assertEqual(len(list((self.env.ws.qa_dir / "frames" / "16x9").glob("*.jpg"))), 4)
         missing = qa.run_qa(self.env.ws, {"16:9": self.env.ws.out_dir / "nope.mp4"})
         self.assertIn("was not produced", missing.summary())
@@ -535,10 +550,18 @@ class RendererContract(unittest.TestCase):
         for kind in timeline.KINDS:
             self.assertRegex(registry, rf"\n\s+{kind}: \w+,", kind)
 
-    def test_three_compositions_share_one_film(self):
+    def test_every_format_is_a_composition_of_the_same_film(self):
+        from promo_engine.config import ASPECTS, render_scale
         root = (SKILL / "renderer" / "src" / "Root.tsx").read_text()
-        for cid, w, h in (("Promo16x9", 1920, 1080), ("Promo9x16", 1080, 1920), ("Promo1x1", 1080, 1080)):
-            self.assertIn(f'id: "{cid}", width: {w}, height: {h}', root)
+        want = {"16:9": (1920, 1080), "9:16": (1080, 1920), "1:1": (1080, 1080),
+                "store-portrait": (886, 1920), "store-landscape": (1920, 886)}
+        self.assertEqual({a: (v["width"], v["height"]) for a, v in ASPECTS.items()}, want)
+        for a, v in ASPECTS.items():
+            self.assertIn(f'id: "{v["id"]}", width: {v["width"]}, height: {v["height"]}', root)
+            for q in ("draft", "final"):  # every render size is even (H.264 4:2:0)
+                s = render_scale(a, q)
+                self.assertTrue((v["width"] * s) % 2 == 0 and (v["height"] * s) % 2 == 0, (a, q, s))
+        self.assertEqual(root.count("component={Film}"), 1, "one Film component behind every composition")
 
     def test_no_nondeterminism_in_the_renderer(self):
         for p in (SKILL / "renderer" / "src").rglob("*.ts*"):

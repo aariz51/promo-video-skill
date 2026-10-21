@@ -21,7 +21,7 @@ from pathlib import Path
 from . import sound
 from .analyzer import image_size
 from .artifacts import parse_claims
-from .config import ASPECTS, QUALITY, Workspace
+from .config import ASPECTS, QUALITY, Workspace, audio_mode
 from .util import PromoError, Report, ffprobe_json, fmt_time, read_json, write_json
 
 MEDIA_EXT = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".mp4", ".mov", ".webm", ".m4v"}
@@ -177,8 +177,9 @@ def validate(tl: dict, ws: Workspace, cfg: dict, claims: dict[str, dict]) -> Rep
         if v is not None and not re.fullmatch(r"#[0-9a-fA-F]{6}", str(v)):
             r.error("timeline.style", f"{key} must be a #rrggbb colour")
     narr = tl.get("narration", {"enabled": True})
-    if not narr.get("enabled", True) and not narr.get("reason"):
-        r.error("timeline.narration", "narration is disabled without a reason; voiceover is the default")
+    voice_on = bool(cfg["audio"]["voiceover"])
+    if voice_on and not narr.get("enabled", True) and not narr.get("reason"):
+        r.error("timeline.narration", "narration is disabled without a reason; the chosen audio mode has voice-over")
 
     ids, total = set(), 0.0
     for i, s in enumerate(scenes):
@@ -268,12 +269,17 @@ def validate(tl: dict, ws: Workspace, cfg: dict, claims: dict[str, dict]) -> Rep
                 r.error(where, f"sfx '{c['fx']}' at {c.get('at')}s is outside the scene")
 
     lo, hi = cfg["duration"]["min"], cfg["duration"]["max"]
+    if not voice_on and any(s.get("sfx") for s in scenes) and not cfg["audio"]["soundEffects"]:
+        r.warn("timeline", "authored sfx are ignored: the audio mode is 'silent'")
     if not lo <= total <= hi:
         r.error("timeline", f"total runtime {total:.1f}s is outside the configured {lo}–{hi}s")
     lines = sum(1 for s in scenes if s.get("narration"))
-    if narr.get("enabled", True) and lines < 3:
+    if voice_on and narr.get("enabled", True) and lines < 3:
         r.error("timeline.narration", f"narration is enabled but only {lines} scene(s) have a line")
-    if narr.get("enabled", True) and lines > len(scenes) * 0.85:
+    if not voice_on and lines:
+        r.warn("timeline.narration", f"{lines} narration line(s) are ignored: the audio mode is "
+               f"'{audio_mode(cfg)}' (no voice-over)")
+    if voice_on and narr.get("enabled", True) and lines > len(scenes) * 0.85:
         r.warn("timeline.narration", "narration on almost every scene; the framework asks for sparse lines")
     if scenes[0].get("kind") not in ("hook", "wordzoom", "statement", "screen", "terminal"):
         r.warn("timeline", "the film opens without a hook")
@@ -355,7 +361,15 @@ def compile_timeline(ws: Workspace) -> tuple[dict, Report]:
     for a, b in zip(narration, narration[1:]):
         a["windowEnd"] = min(a["windowEnd"], b["at"] - 0.15)
     total_frames = round(start * fps)
-    cues = sorted((c for c in cues if c["at"] < start - 0.05), key=lambda c: (c["at"], c["fx"]))
+    pol = {"mode": audio_mode(cfg), "voiceover": bool(cfg["audio"]["voiceover"]),
+           "soundEffects": bool(cfg["audio"]["soundEffects"]), "music": False}
+    narr_cfg = tl.get("narration", {})
+    narr_enabled = pol["voiceover"] and narr_cfg.get("enabled", True)
+    narr_reason = narr_cfg.get("reason") if pol["voiceover"] else f"audio mode '{pol['mode']}': no voice-over"
+    if not narr_enabled:
+        narration = []
+    cues = sorted((c for c in cues if c["at"] < start - 0.05), key=lambda c: (c["at"], c["fx"])) \
+        if pol["soundEffects"] else []
     quality = QUALITY[cfg["render"]["quality"]]
     rc = {
         "version": 1,
@@ -369,9 +383,9 @@ def compile_timeline(ws: Workspace) -> tuple[dict, Report]:
         "quality": {"name": cfg["render"]["quality"], **quality},
         "style": resolve_style(tl.get("style", {}), cfg),
         "scenes": scenes_out,
-        "narration": {"enabled": tl.get("narration", {}).get("enabled", True),
-                      "reason": tl.get("narration", {}).get("reason"), "lines": narration},
-        "sound": {"cues": cues, "ambience": bool(cfg["sound"].get("ambience"))},
+        "narration": {"enabled": narr_enabled, "reason": narr_reason, "lines": narration},
+        "audioPolicy": pol,
+        "sound": {"cues": cues, "ambience": bool(cfg["sound"].get("ambience")) and pol["soundEffects"]},
         "audio": {"src": None},
     }
     write_json(ws.render_config, rc)
@@ -429,5 +443,8 @@ def storyboard_md(rc: dict, cues: list[dict]) -> str:
         lines.append(f"| {i} | {fmt_time(a)}–{fmt_time(b)} | {s['id']} | {s['kind']} | {s['purpose']} | "
                      f"{_visual(s)} | {s['transition']['type']} | {narr.get(s['id'], '—')} | {fx_s} | "
                      f"{', '.join(s['claims']) or '—'} |")
-    lines += ["", "Background music: none. Sound is effects and voice only."]
+    pol = rc.get("audioPolicy") or {"mode": "voiceover"}
+    lines += ["", {"voiceover": "Audio: voice-over + sound effects. Background music: none.",
+                   "effects": "Audio: sound effects only, no narration. Background music: none.",
+                   "silent": "Audio: none. The film renders without an audio stream."}[pol["mode"]]]
     return "\n".join(lines) + "\n"

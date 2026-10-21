@@ -19,7 +19,7 @@ from pathlib import Path
 
 from . import adapter, analyzer, artifacts, audio, capture, providers, qa, questions, reference_input, render, \
     timeline, voiceover, watcher
-from .config import AUDIO_MODES, ASPECTS, PROVIDER_KEYS, QUALITY, Workspace, audio_mode, init_workspace, mode, \
+from .config import AUDIO_MODES, ASPECTS, PROVIDER_KEYS, Workspace, audio_mode, init_workspace, mode, \
     reference_source
 from .util import RENDERER_DIR, PromoError, Report, free_gb, read_json, write_json
 
@@ -264,7 +264,7 @@ def _find_videos(ws: Workspace, aspects: list[str], quality: str) -> dict[str, P
 def cmd_qa(args) -> int:
     ws = _ws(args)
     quality = args.quality or ws.config()["render"]["quality"]
-    rep = qa.run_qa(ws, _find_videos(ws, _aspects(args, ws), quality), scale=QUALITY[quality]["scale"])
+    rep = qa.run_qa(ws, _find_videos(ws, _aspects(args, ws), quality), quality)
     return _print_report(rep, f"QA passed. Report: {ws.qa_report}")
 
 

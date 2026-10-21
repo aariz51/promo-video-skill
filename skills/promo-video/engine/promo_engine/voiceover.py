@@ -1,18 +1,25 @@
 """Voiceover: one narration line per cue, fitted to its window and verified.
 
-Providers (config `voice.provider`):
-  auto        openrouter when OPENROUTER_API_KEY is set, else macOS `say`, else fail loudly
-  openrouter  openai/gpt-audio via OpenRouter. The key is read ONLY from the
-              OPENROUTER_API_KEY environment variable, passed to curl on stdin (never on the
-              command line) and never written to disk or logged.
+Runs only when the audio policy has voice-over. In `effects` and `silent` modes no engine
+is called, nothing is sent anywhere, and the manifest records why.
+
+Providers (config `voice.provider`, resolved by `providers.pick`, never substituted):
+  openrouter  openai/gpt-audio via OpenRouter (chat completions with audio output). The
+              model's audio output modality is checked against OpenRouter's model list first.
+  openai      OpenAI's speech endpoint (gpt-4o-mini-tts); each take is transcribed with
+              gpt-4o-mini-transcribe and compared with the script.
   say         macOS `say`: keyless and offline.
   files       your own recordings: promo/assets/vo/NN.wav, one per narration line, in order.
-  none        no narration (only valid when timeline.json disables narration with a reason).
+  auto        the single configured API provider; ambiguity or absence is an error.
+
+Keys are read ONLY from OPENROUTER_API_KEY / OPENAI_API_KEY, passed to curl on stdin
+(never on the command line), and never written to disk or logged; error text is redacted.
 
 Chat-style TTS models sometimes *answer* a line instead of reading it ("Scan any label."
 once came back as "I'm sorry, I can't assist with that"). Each take's transcript is
 compared with the script and retried; a line that never reads cleanly stops the run.
-Takes are cached in promo/build/vo-cache, so re-runs are free and deterministic.
+Takes are cached in promo/build/vo-cache under a key over every input that changes the
+audio (provider, model, voice, direction, text, format, pipeline version).
 """
 import array
 import base64
@@ -26,10 +33,20 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from .util import PromoError
+from . import providers
+from .util import PromoError, redact
 
 OR_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
+OR_MODELS = "https://openrouter.ai/api/v1/models"
 OR_MODEL = "openai/gpt-audio"
+OA_SPEECH = "https://api.openai.com/v1/audio/speech"
+OA_TRANSCRIBE = "https://api.openai.com/v1/audio/transcriptions"
+OA_TTS_MODEL = "gpt-4o-mini-tts"
+OA_STT_MODEL = "gpt-4o-mini-transcribe"
+OA_TTS_MODELS = {"gpt-4o-mini-tts", "tts-1", "tts-1-hd"}  # the speech endpoint's models
+OA_VOICES = {"alloy", "ash", "ballad", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer", "verse"}
+PIPELINE = 2  # bump when trimming/format handling changes what a cached take contains
+MODELS = {"openrouter": OR_MODEL, "openai": OA_TTS_MODEL, "say": "say", "files": "files"}
 MAX_TEMPO = 1.2
 OPENROUTER_VOICES = {"alloy", "ash", "ballad", "coral", "echo", "sage", "shimmer", "verse", "marin", "cedar"}
 MARGIN = 0.12  # breath left before the next line starts
@@ -39,8 +56,35 @@ def run(cmd, **kw):  # noqa: D401 - local variant keeps bytes I/O for audio
     res = subprocess.run(cmd, capture_output=True, **kw)
     if res.returncode != 0:
         err = res.stderr.decode(errors="replace") if isinstance(res.stderr, bytes) else res.stderr
-        raise PromoError(f"{cmd[0]} failed (exit {res.returncode}):\n  " + "\n  ".join(err.strip().splitlines()[-5:]))
+        raise PromoError(f"{cmd[0]} failed (exit {res.returncode}):\n  " + redact("\n  ".join(err.strip().splitlines()[-5:])))
     return res
+
+
+def _key(var):
+    key = os.environ.get(var, "").strip()
+    if not key:
+        raise PromoError(f"{var} is not set", hint="export it in your shell; keys are never read from files or chat")
+    return key
+
+
+def _curl_auth(key):
+    # Key goes through curl's stdin config so it never appears in `ps` output or argv.
+    return f'header = "Authorization: Bearer {key}"\n'.encode()
+
+
+def check_openrouter_model(model=OR_MODEL):
+    """OpenRouter serves many models; confirm this one can actually produce audio."""
+    res = run(["curl", "-sS", "--max-time", "30", OR_MODELS], text=True)
+    try:
+        models = json.loads(res.stdout).get("data", [])
+    except json.JSONDecodeError as exc:
+        raise PromoError("could not read OpenRouter's model list to verify audio support") from exc
+    m = next((x for x in models if x.get("id") == model), None)
+    if m is None:
+        raise PromoError(f"OpenRouter does not list the model '{model}'", hint="check voice settings")
+    outs = ((m.get("architecture") or {}).get("output_modalities")) or []
+    if "audio" not in outs:
+        raise PromoError(f"OpenRouter model '{model}' does not produce audio (outputs: {', '.join(outs) or 'unknown'})")
 
 
 def duration(path):
@@ -50,12 +94,7 @@ def duration(path):
 
 
 def tts_openrouter(text, voice, direction, dest):
-    key = os.environ.get("OPENROUTER_API_KEY", "").strip()
-    if not key:
-        raise PromoError(
-            "--engine openrouter needs OPENROUTER_API_KEY in the environment.\n"
-            "Voiceover is optional: skip it, or use --engine say on macOS."
-        )
+    key = _key("OPENROUTER_API_KEY")
     # Short imperative lines ("Scan any label.") get treated as requests and answered
     # ("I'm sorry, I can't assist with that") unless the framing makes it unmistakable
     # that the text is a script line to be read, not an instruction.
@@ -74,11 +113,9 @@ def tts_openrouter(text, voice, direction, dest):
         "messages": [{"role": "system", "content": system},
                      {"role": "user", "content": f"<line>{text}</line>"}],
     })
-    # Key goes through curl's stdin config so it never appears in `ps` output.
-    cfg = f'header = "Authorization: Bearer {key}"\n'
     res = run(["curl", "-sS", "-N", "-X", "POST", OR_ENDPOINT, "--config", "-",
                "-H", "Content-Type: application/json", "--data-binary", body],
-              input=cfg.encode())
+              input=_curl_auth(key))
     pcm = b""
     said = ""
     for line in res.stdout.split(b"\n"):
@@ -93,7 +130,7 @@ def tts_openrouter(text, voice, direction, dest):
         except json.JSONDecodeError:
             continue
         if obj.get("error"):
-            raise PromoError(f"OpenRouter error: {obj['error'].get('message', obj['error'])}")
+            raise PromoError(redact(f"OpenRouter error: {obj['error'].get('message', obj['error'])}"))
         delta = (obj.get("choices") or [{}])[0].get("delta") or {}
         audio = delta.get("audio") or {}
         if audio.get("data"):
@@ -109,6 +146,52 @@ def tts_openrouter(text, voice, direction, dest):
          "-ar", "48000", "-ac", "2", dest])
     os.remove(raw)
     return said
+
+
+def _json_error(raw, who):
+    try:
+        obj = json.loads(raw)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return None
+    err = obj.get("error") if isinstance(obj, dict) else None
+    if err:
+        return PromoError(redact(f"{who} error: {err.get('message', err) if isinstance(err, dict) else err}"))
+    return None
+
+
+def transcribe_openai(path, key):
+    res = run(["curl", "-sS", "--max-time", "60", "-X", "POST", OA_TRANSCRIBE, "--config", "-",
+               "-F", f"model={OA_STT_MODEL}", "-F", "response_format=json", "-F", f"file=@{path}"],
+              input=_curl_auth(key))
+    err = _json_error(res.stdout, "OpenAI transcription")
+    if err:
+        raise err
+    try:
+        return json.loads(res.stdout).get("text", "")
+    except json.JSONDecodeError as exc:
+        raise PromoError("OpenAI transcription returned something that is not JSON") from exc
+
+
+def tts_openai(text, voice, direction, dest):
+    """Speech endpoint → WAV, then a transcription of the take for verification."""
+    key = _key("OPENAI_API_KEY")
+    if OA_TTS_MODEL not in OA_TTS_MODELS:
+        raise PromoError(f"'{OA_TTS_MODEL}' is not an OpenAI speech model")
+    body = {"model": OA_TTS_MODEL, "voice": voice, "input": text, "response_format": "wav"}
+    if OA_TTS_MODEL == "gpt-4o-mini-tts":
+        body["instructions"] = direction  # only this model accepts delivery instructions
+    raw = dest + ".oa.wav"
+    res = run(["curl", "-sS", "--max-time", "120", "-X", "POST", OA_SPEECH, "--config", "-",
+               "-H", "Content-Type: application/json", "--data-binary", json.dumps(body), "-o", raw],
+              input=_curl_auth(key))
+    data = open(raw, "rb").read() if os.path.exists(raw) else b""
+    if not data.startswith(b"RIFF"):
+        if os.path.exists(raw):
+            os.remove(raw)
+        raise _json_error(data, "OpenAI speech") or PromoError(f"No audio came back for {text!r}.")
+    run(["ffmpeg", "-y", "-i", raw, "-ar", "48000", "-ac", "2", dest])
+    os.remove(raw)
+    return transcribe_openai(dest, key)
 
 
 def tts_say(text, voice, _direction, dest):
@@ -150,7 +233,7 @@ def speech_bounds(path, lead=0.04, tail=0.15):
     return start, end
 
 
-ENGINES = {"openrouter": tts_openrouter, "say": tts_say}
+ENGINES = {"openrouter": tts_openrouter, "openai": tts_openai, "say": tts_say}
 
 
 _ONES = "zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen".split()
@@ -190,10 +273,16 @@ def matches(script, said):
     return difflib.SequenceMatcher(None, a, b).ratio() >= 0.8
 
 
+def cache_key(engine, text, voice, direction):
+    """Every input that changes the audio. Line position is deliberately not one of them."""
+    parts = [engine, MODELS[engine], voice or "", direction or "", text, "wav-48k-stereo", str(PIPELINE)]
+    return hashlib.sha256(json.dumps(parts).encode()).hexdigest()[:20]
+
+
 def take(engine, text, voice, direction, cache, attempts=4):
     """Natural-speed take, verified against the script, cached once verified."""
     os.makedirs(cache, exist_ok=True)
-    key = hashlib.sha1(f"{engine}|{OR_MODEL}|{voice}|{direction}|{text}".encode()).hexdigest()[:16]
+    key = cache_key(engine, text, voice, direction)
     path = os.path.join(cache, f"{key}.wav")
     said_path = path + ".said.txt"
     if os.path.exists(path) and os.path.exists(said_path) and matches(text, open(said_path).read()):
@@ -214,17 +303,18 @@ def take(engine, text, voice, direction, cache, attempts=4):
 
 
 
+DEFAULT_VOICES = {"openrouter": "cedar", "openai": "coral", "say": "Samantha", "files": None}
 
-def pick_engine(provider: str) -> str:
-    if provider == "auto":
-        if os.environ.get("OPENROUTER_API_KEY"):
-            return "openrouter"
-        if shutil.which("say"):
-            return "say"
-        raise PromoError("no voiceover engine is available on this machine",
-                         hint="set OPENROUTER_API_KEY, record lines into promo/assets/vo/ and use provider "
-                              "'files', or disable narration in timeline.json with a reason")
-    return provider
+
+def _voice_for(engine, configured):
+    v = configured or DEFAULT_VOICES[engine]
+    if engine == "say" and v in OPENROUTER_VOICES | OA_VOICES:
+        return DEFAULT_VOICES["say"]
+    if engine == "openai" and v not in OA_VOICES:
+        raise PromoError(f"OpenAI has no voice '{v}'", hint=f"use one of {', '.join(sorted(OA_VOICES))}")
+    if engine == "openrouter" and v not in OPENROUTER_VOICES:
+        raise PromoError(f"OpenRouter gpt-audio has no voice '{v}'", hint=f"use one of {', '.join(sorted(OPENROUTER_VOICES))}")
+    return v
 
 
 def render_voice(ws, rc: dict, cfg: dict) -> dict:
@@ -232,27 +322,33 @@ def render_voice(ws, rc: dict, cfg: dict) -> dict:
     lines = rc["narration"]["lines"]
     out = Path(ws.vo_dir)
     out.mkdir(parents=True, exist_ok=True)
-    for f in out.iterdir():
-        if f.suffix == ".wav" or f.name == "manifest.json":
-            f.unlink()
-    if not rc["narration"]["enabled"] or cfg["voice"]["provider"] == "none":
-        if rc["narration"]["enabled"]:
-            raise PromoError("voice provider is 'none' but the timeline has narration",
-                             hint="choose a provider, or set narration.enabled=false with a reason in timeline.json")
-        manifest = {"engine": "none", "reason": rc["narration"]["reason"], "lines": []}
+
+    def clear():
+        for f in out.iterdir():
+            if f.suffix == ".wav" or f.name == "manifest.json":
+                f.unlink()
+
+    policy_on = bool(cfg["audio"]["voiceover"]) and (rc.get("audioPolicy") or {}).get("voiceover", True)
+    if not policy_on or not rc["narration"]["enabled"]:
+        # No engine is called and no request leaves the machine.
+        clear()
+        reason = rc["narration"]["reason"] or "narration disabled"
+        manifest = {"engine": "none", "reason": reason, "lines": []}
         (out / "manifest.json").write_text(json.dumps(manifest, indent=2))
         return manifest
     if not lines:
         raise PromoError("narration is enabled but render-config.json has no narration lines")
-    engine = pick_engine(cfg["voice"]["provider"])
-    for b in ("ffmpeg", "ffprobe") + (("curl",) if engine == "openrouter" else ()):
+    engine = providers.pick(cfg)  # raises rather than substituting
+    for b in ("ffmpeg", "ffprobe") + (("curl",) if engine in ("openrouter", "openai") else ()):
         if shutil.which(b) is None:
             raise PromoError(f"missing required tool on PATH: {b}")
-    voice = cfg["voice"].get("voice") or ("cedar" if engine == "openrouter" else "Samantha")
-    if engine == "say" and voice in OPENROUTER_VOICES:
-        voice = "Samantha"
+    voice = _voice_for(engine, cfg["voice"].get("voice"))
     direction = cfg["voice"]["direction"]
     cache = str(Path(ws.root) / "build" / "vo-cache")
+    if engine == "openrouter" and any(not os.path.exists(os.path.join(cache, cache_key(engine, ln["text"], voice, direction) + ".wav"))
+                                      for ln in lines):
+        check_openrouter_model()
+    clear()
     manifest, problems = [], []
     with tempfile.TemporaryDirectory() as tmp:
         for i, line in enumerate(lines):

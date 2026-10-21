@@ -10,7 +10,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from .config import ASPECTS, QUALITY, Workspace
+from .config import ASPECTS, QUALITY, Workspace, render_scale
 from .timeline import _media_refs
 from .util import FONTS_DIR, RENDERER_DIR, PromoError, free_gb, read_json, require_tools, write_json
 
@@ -52,7 +52,11 @@ def stage(ws: Workspace, rc: dict) -> Path:
         raise PromoError("assets referenced by the timeline are missing:\n  " + "\n  ".join(missing),
                          hint="add them under promo/assets/ or change the scenes, then `promo compile`")
     props = dict(rc)
-    props["audio"] = {"src": "audio/master.wav" if ws.master_audio.is_file() else None}
+    silent = (rc.get("audioPolicy") or {}).get("mode") == "silent"
+    if not silent and not ws.master_audio.is_file():
+        raise PromoError("the audio mode has sound but there is no audio master", hint="run `promo audio` first")
+    # Silent films never reference audio, so nothing stale on disk can be attached.
+    props["audio"] = {"src": None if silent else "audio/master.wav"}
     write_json(ws.root / "build" / "render-props.json", props)
     return pub
 
@@ -77,7 +81,9 @@ def render(ws: Workspace, aspect: str, *, quality: str | None = None) -> Path:
     out = out_dir / f"promo-{suffix}{'-draft' if quality == 'draft' else ''}.mp4"
     cmd = ["npx", "remotion", "render", "src/index.ts", comp["id"], str(out),
            f"--props={ws.root / 'build' / 'render-props.json'}", f"--public-dir={ws.stage}",
-           f"--crf={q['crf']}", f"--scale={q['scale']}", "--log=error"]
+           f"--crf={q['crf']}", f"--scale={render_scale(aspect, quality)}", "--log=error"]
+    if (rc.get("audioPolicy") or {}).get("mode") == "silent":
+        cmd.append("--muted")  # no audio stream at all, rather than a silent one
     log = ws.root / "build" / f"render-{suffix}.log"
     print(f"Rendering {comp['id']} ({comp['width']}×{comp['height']}, {quality}) → {out}")
     res = subprocess.run(cmd, cwd=RENDERER_DIR, capture_output=True, text=True)

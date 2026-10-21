@@ -13,11 +13,12 @@ Fonts
 
 Sound effects
 -------------
-`skills/promo-video/renderer/public/sfx/*.mp3`
-    Provided as development placeholders. Their provenance has not been
-    verified for commercial redistribution. Verify licensing before using them
-    in a commercial release, or replace them with effects you have the rights
-    to (same file names; the mixer reads them from that folder).
+No third-party sound files are bundled. Every effect is synthesised at build
+time from a formula in `skills/promo-video/engine/promo_engine/sfx_synth.py`
+(ffmpeg `aevalsrc`), so the effects are original to this project and covered
+by its MIT licence. Earlier versions (v3, v4) bundled `renderer/public/sfx/*.mp3`
+files of unverified provenance; they were removed in v5 and should not be
+reused from git history for commercial work.
 
 npm dependency
 --------------

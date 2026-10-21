@@ -1,12 +1,15 @@
 """Sound mix: mapped effects + voiceover → one master WAV. Never background music.
 
-Inputs come only from `render-config.json` (sound cues) and the voiceover manifest. The
-effects are the short files in `sound.LIBRARY`; voice lines are placed at their cues and
-the effects are side-chain ducked beneath them so every word reads. An optional ambience
-layer is procedural pink noise, low-passed: non-melodic by construction.
+Inputs come only from `render-config.json` (sound cues + the audio policy) and the
+voiceover manifest. The policy decides what may enter the mix:
 
-`audio-manifest.json` records every source that went into the master, so QA can prove
-what is (and is not) in the mix.
+  voiceover  effects + voice, effects side-chain ducked beneath the voice
+  effects    effects only; any voice files on disk are ignored, not mixed
+  silent     no master at all; the film renders muted (no audio stream)
+
+Effects are synthesised by `sfx_synth.py`. An optional ambience layer is procedural pink
+noise, low-passed: non-melodic by construction. `audio-manifest.json` records the policy
+and every source that went into the master, so QA can prove what is (and is not) in it.
 """
 from __future__ import annotations
 
@@ -14,9 +17,21 @@ import json
 import os
 import tempfile
 
-from . import sound
+from . import sfx_synth, sound
 from .config import Workspace
-from .util import SFX_DIR, PromoError, media_duration, require_tools, run, write_json
+from .util import PromoError, media_duration, require_tools, run, write_json
+
+
+def policy(rc: dict) -> dict:
+    """The audio policy compiled into render-config.json (v4 configs: narration + effects)."""
+    p = rc.get("audioPolicy")
+    if p is None:
+        vo = bool(rc["narration"]["enabled"])
+        p = {"mode": "voiceover" if vo else "effects", "voiceover": vo, "soundEffects": True, "music": False}
+    if p.get("music") is not False:
+        raise PromoError("render-config.json asks for music; background music is never used",
+                         hint="re-run `promo compile`")
+    return p
 
 
 def _max_db(path: str) -> float:
@@ -27,9 +42,9 @@ def _max_db(path: str) -> float:
     return -99.0
 
 
-def _norm_sfx(tmp: str, name: str, target: float = -3.0) -> str:
+def _norm_sfx(tmp: str, lib: dict, name: str, target: float = -3.0) -> str:
     """Peak-normalise one effect to `target` dBFS, 48 kHz stereo (once per run)."""
-    src = SFX_DIR / sound.LIBRARY[name]
+    src = lib[name]
     dst = os.path.join(tmp, f"sfx_{name}.wav")
     if not os.path.exists(dst):
         gain = target - _max_db(str(src))
@@ -48,18 +63,28 @@ def load_vo(ws: Workspace) -> list[dict]:
     return lines
 
 
+def _manifest_path(ws: Workspace):
+    return ws.root / "build" / "audio-manifest.json"
+
+
 def build_master(ws: Workspace, rc: dict) -> dict:
-    require_tools("ffmpeg", "ffprobe")
+    pol = policy(rc)
     dur = float(rc["duration"])
-    cues = rc["sound"]["cues"]
+    if pol["mode"] == "silent":
+        # Nothing is generated and nothing stale may survive to be attached at render time.
+        if ws.master_audio.exists():
+            ws.master_audio.unlink()
+        manifest = {"master": None, "duration": dur, "policy": pol, "music": False, "sources": []}
+        write_json(_manifest_path(ws), manifest)
+        return manifest
+    require_tools("ffmpeg", "ffprobe")
+    cues = rc["sound"]["cues"] if pol["soundEffects"] else []
     for name in sorted({c["fx"] for c in cues}):
         if name not in sound.LIBRARY:
             raise PromoError(f"cue uses unknown effect '{name}'")
-        if not (SFX_DIR / sound.LIBRARY[name]).is_file():
-            raise PromoError(f"sound effect '{name}' is missing: {SFX_DIR / sound.LIBRARY[name]}",
-                             hint="restore renderer/public/sfx/ from the repository")
-    vo = load_vo(ws)
-    if rc["narration"]["enabled"] and not vo:
+    lib = sfx_synth.build_library(ws.root / "build" / "sfx") if cues else {}
+    vo = load_vo(ws) if pol["voiceover"] else []
+    if pol["voiceover"] and rc["narration"]["enabled"] and not vo:
         raise PromoError("the timeline has narration but no voiceover was rendered", hint="run `promo voice` first")
     ws.master_audio.parent.mkdir(parents=True, exist_ok=True)
     provenance: list[dict] = []
@@ -78,14 +103,14 @@ def build_master(ws: Workspace, rc: dict) -> dict:
             idx += 1
             provenance.append({"kind": "ambience", "source": "procedural pink noise (non-melodic)", "at": 0, "seconds": dur})
         for c in cues:
-            path = _norm_sfx(tmp, c["fx"])
+            path = _norm_sfx(tmp, lib, c["fx"])
             if path not in lengths:
                 lengths[path] = round(media_duration(path), 3)
             inputs += ["-i", path]
             d = int(c["at"] * 1000)
             filt.append(f"[{idx}:a]adelay={d}|{d},volume={c['vol']:.3f}[f{idx}]")
             fx_labels.append(f"f{idx}")
-            provenance.append({"kind": "sfx", "source": f"sfx/{sound.LIBRARY[c['fx']]}", "fx": c["fx"], "at": c["at"],
+            provenance.append({"kind": "sfx", "source": sound.source_name(c["fx"]), "fx": c["fx"], "at": c["at"],
                                "seconds": lengths[path], "scene": c.get("scene")})
             idx += 1
         for ln in vo:
@@ -114,6 +139,7 @@ def build_master(ws: Workspace, rc: dict) -> dict:
         run(["ffmpeg", "-y"] + inputs + ["-filter_complex", ";".join(filt), "-map", "[out]",
                                          "-t", str(dur), "-ar", "48000", "-ac", "2", str(ws.master_audio)])
 
-    manifest = {"master": "audio/master.wav", "duration": dur, "music": False, "sources": provenance}
-    write_json(ws.root / "build" / "audio-manifest.json", manifest)
+    manifest = {"master": "audio/master.wav", "duration": dur, "policy": pol, "music": False,
+                "synth": f"sfx_synth v{sfx_synth.VERSION} ({sfx_synth.recipe_hash()})", "sources": provenance}
+    write_json(_manifest_path(ws), manifest)
     return manifest

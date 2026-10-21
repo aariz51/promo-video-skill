@@ -50,6 +50,15 @@ QUALITY = {
     "final": {"crf": 18, "scale": 1.0},
 }
 
+def render_scale(aspect: str, quality: str) -> float:
+    """The quality's scale, unless it would give an odd side (H.264 4:2:0 needs even sizes):
+    886 × 0.5 = 443, so App Store drafts render at full size."""
+    s = QUALITY[quality]["scale"]
+    a = ASPECTS[aspect]
+    w, h = a["width"] * s, a["height"] * s
+    return s if w == int(w) and h == int(h) and int(w) % 2 == 0 and int(h) % 2 == 0 else 1.0
+
+
 VOICE_PROVIDERS = {"auto", "openrouter", "openai", "say", "files", "none"}
 # Which environment variable unlocks each API provider. Values are never read into config.
 PROVIDER_KEYS = {"openrouter": "OPENROUTER_API_KEY", "openai": "OPENAI_API_KEY"}
@@ -117,7 +126,7 @@ class Workspace:
     @property
     def qa_dir(self) -> Path: return self.root / "qa"
     @property
-    def qa_report(self) -> Path: return self.root / "qa-report.md"
+    def qa_report(self) -> Path: return self.root / "TEST_REPORT.md"
 
     def config(self) -> dict:
         user = read_json(self.config_path) if self.config_path.exists() else {}

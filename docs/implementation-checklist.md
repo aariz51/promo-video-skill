@@ -12,14 +12,14 @@ Audit: [engineering-audit.md](engineering-audit.md). Run evidence: [TEST_REPORT.
 | CFG-1 | One canonical run config `audio {voiceover, soundEffects, music:false}`; music can never be enabled; invalid config rejected | engine/config.py | `test_modes.RunConfiguration` (3 modes → policy; music True/'ambient'/None/1 rejected; voice-only and unknown keys rejected; persisted `music:false`) | PASS |  |
 | CFG-2 | Mode chosen from input: none → A; YouTube / other video URL / local video file → B; bad input is an error, never a guess | engine/reference_input.py, cli init | `test_modes.ModeSelection` (none/YouTube/other URL/local file; undecodable, truncated, audio-only, missing, wrong-type files rejected; text never guessed as URL); `test_init_rejects_a_bad_url_before_any_work` | PASS |  |
 | CFG-3 | Opening questions computed from what is known; nothing already supplied is asked again | engine/questions.py, cli `questions` | `test_modes.OpeningQuestions` (reference then audio first; all-supplied → no questions; repo facts not asked; bare repo asks product+assets; runtime skipped with a reference) | PASS |  |
-| CFG-4 | Voice provider resolved explicitly and recorded; ambiguity is asked; no silent substitution | engine/config.py, voiceover.py | `providers.py` + `test_modes.VoiceProviders`; voiceover.py not yet switched to it | IN_PROGRESS |  |
-| AUD-1 | Voice-over + effects mode: narration and effects, never music | voiceover.py, audio.py, qa.py | | NOT_STARTED | |
-| AUD-2 | Effects-only mode: no speech generated, mix has no voice | voiceover.py, audio.py, qa.py | | NOT_STARTED | |
-| AUD-3 | Silent mode: no voice, no effects, no mix, exported file has no audio stream | render.py, qa.py | | NOT_STARTED | |
-| AUD-4 | Effects are licence-clean (procedurally synthesised, deterministic, short) | engine/sfx_synth.py | | NOT_STARTED | |
-| AUD-5 | OpenAI TTS provider with transcript verification; OpenRouter path preserved | voiceover.py | | NOT_STARTED | |
-| AUD-6 | Voice cache key covers provider, model, voice, direction, text, format, pipeline version | voiceover.py | | NOT_STARTED | |
-| AUD-7 | API keys never written to workspace files or printed | voiceover.py, tests | | NOT_STARTED | |
+| CFG-4 | Voice provider resolved explicitly and recorded; ambiguity is asked; no silent substitution | engine/config.py, voiceover.py | `providers.py`; `voiceover.render_voice` uses `providers.pick`; `test_modes.VoiceProviders`, `test_audio_modes.Providers.test_auto_never_falls_back_to_a_local_voice` | PASS |  |
+| AUD-1 | Voice-over + effects mode: narration and effects, never music | voiceover.py, audio.py, qa.py | `test_audio_modes.AudioModes.test_voiceover_plus_effects_mix` (real ffmpeg mix: sources = sfx+voice, no-music proof passes; engine mocked); real render in E2E-AUD | PASS |  |
+| AUD-2 | Effects-only mode: no speech generated, mix has no voice | voiceover.py, audio.py, qa.py | `test_audio_modes.AudioModes.test_effects_and_silent_never_call_a_voice_engine`, `test_effects_only_mix_has_no_speech_even_with_stale_voice_files` (voice source and tone outside cues both rejected) | PASS |  |
+| AUD-3 | Silent mode: no voice, no effects, no mix, exported file has no audio stream | render.py, qa.py | `test_silent_mode_builds_nothing_and_removes_a_stale_master`, `test_silent_render_is_muted_and_attaches_no_audio` (`--muted`, src null), `SilentExportQA`; real Remotion render pending (E2E-AUD) | IN_PROGRESS |  |
+| AUD-4 | Effects are licence-clean (procedurally synthesised, deterministic, short) | engine/sfx_synth.py | `sfx_synth.py`; MP3s removed; `test_audio_modes.SynthesisedEffects` (all 17 ≤ 6 s, audible, byte-identical across builds); NOTICE updated | PASS |  |
+| AUD-5 | OpenAI TTS provider with transcript verification; OpenRouter path preserved | voiceover.py | `voiceover.tts_openai` + `transcribe_openai`; `Providers.test_openai_take_is_verified_by_transcription_and_key_stays_off_argv` (answering take retried), `test_openrouter_model_must_produce_audio`, bounded retry test; no live call made (no paid API in tests) | PASS |  |
+| AUD-6 | Voice cache key covers provider, model, voice, direction, text, format, pipeline version | voiceover.py | `voiceover.cache_key`; `Providers.test_cache_key_covers_every_generation_input` | PASS |  |
+| AUD-7 | API keys never written to workspace files or printed | voiceover.py, tests | `util.redact` on every PromoError; keys via curl stdin; `Providers.test_api_errors_are_safe_and_actionable`, `test_no_secret_reaches_the_workspace`, `RunConfiguration.test_config_holds_no_secret_values` | PASS |  |
 | REF-1 | Reference metadata from the real file: duration, fps, size, aspect, audio, captions | engine/reference.py | | NOT_STARTED | |
 | REF-2 | Scene boundaries and transition types (cut / dissolve / dip) measured from pixels | engine/reference.py | | NOT_STARTED | |
 | REF-3 | Evidence frames per scene and transition, timestamped contact sheets | engine/reference.py | | NOT_STARTED | |
@@ -32,14 +32,14 @@ Audit: [engineering-audit.md](engineering-audit.md). Run evidence: [TEST_REPORT.
 | DIR-4 | Two different reference fixtures produce materially different storyboards | tests | | NOT_STARTED | |
 | DIR-5 | Mode A writes CREATIVE_DIRECTION.md from the creative prompt and storyboard | engine/direction.py | | NOT_STARTED | |
 | RND-1 | Renderer implements measured transitions (`cut` hard, `dip` to black/white) | renderer/src/transitions.tsx | | NOT_STARTED | |
-| RND-2 | Exact App Store compositions 886×1920 and 1920×886 alongside 1920×1080, 1080×1920 | renderer/src/Root.tsx, config.py | | NOT_STARTED | |
-| RND-3 | Draft renders keep even dimensions for every format | config.py, render.py | | NOT_STARTED | |
-| RND-4 | TypeScript compiles; compositions load | renderer | | NOT_STARTED | |
+| RND-2 | Exact App Store compositions 886×1920 and 1920×886 alongside 1920×1080, 1080×1920 | renderer/src/Root.tsx, config.py | `config.ASPECTS` + `Root.tsx` (886×1920, 1920×886); `RendererContract.test_every_format_is_a_composition_of_the_same_film`; real render pending | IN_PROGRESS |  |
+| RND-3 | Draft renders keep even dimensions for every format | config.py, render.py | `config.render_scale` (App Store drafts at 1.0); asserted for every format × quality in `test_every_format_is_a_composition_of_the_same_film` | PASS |  |
+| RND-4 | TypeScript compiles; compositions load | renderer | `npx tsc --noEmit` exit 0 (renderer, 2026-10-21) | PASS |  |
 | ANI-1 | Frame-level animation checks on a real render (scene start/mid/end, transitions, lockup) | tests/test_render.py | | NOT_STARTED | |
 | E2E-A | Autonomous integration: fixtures → brief → direction → storyboard → render → validation | tests/test_render.py | | NOT_STARTED | |
 | E2E-B | Reference integration: synthetic reference → frames → breakdown → storyboard → render → validation | tests/test_render.py | | NOT_STARTED | |
 | E2E-AUD | All three audio modes rendered and inspected with ffprobe | tests/test_render.py | | NOT_STARTED | |
-| QA-1 | QA writes `qa/validation.json` and `TEST_REPORT.md`, mode-aware | qa.py | | NOT_STARTED | |
+| QA-1 | QA writes `qa/validation.json` and `TEST_REPORT.md`, mode-aware | qa.py | `qa.validation` → `qa/validation.json` (per-check status), `TEST_REPORT.md`; `QualityAssurance.test_full_qa_writes_the_report`; encoded files re-checked for beds/speech (`test_background_music_is_detected`) | PASS |  |
 | DEL-1 | `promo deliver` assembles videos, direction, storyboard, reports, editable Remotion project | engine/deliver.py | | NOT_STARTED | |
 | CI-1 | GitHub Actions runs unit tests, typecheck and a smoke render | .github/workflows/ci.yml | | NOT_STARTED | |
 | DOC-1 | SKILL.md and docs describe the implemented behaviour | SKILL.md, docs/ | | NOT_STARTED | |
