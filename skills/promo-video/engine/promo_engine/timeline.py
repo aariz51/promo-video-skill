@@ -28,6 +28,7 @@ MEDIA_EXT = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".mp4", ".mov", "
 TRANSITIONS = {"none", "cut", "fade", "light", "push", "wipe", "zoom", "dip"}
 DIRECTIONS = {"left", "right", "up", "down"}  # wipe / push: the way the edge (or picture) travels
 DIP_COLOURS = {"black", "white"}
+EASINGS = {"linear", "in", "out", "inOut"}
 MIN_SCENE = 0.5  # seconds; fast references cut quicker than 1.5 s
 DEVICES = {"browser", "phone", "desktop", "none"}
 CAMERAS = {"push", "pan", "hold", "pull", "rise"}
@@ -252,6 +253,10 @@ def validate(tl: dict, ws: Workspace, cfg: dict, claims: dict[str, dict]) -> Rep
             r.error(where, f"transition direction must be one of {', '.join(sorted(DIRECTIONS))}")
         if ttype == "dip" and tr.get("color", "black") not in DIP_COLOURS:
             r.error(where, "a dip goes through black or white")
+        if "sweep" in tr and not isinstance(tr["sweep"], bool):
+            r.error(where, "transition sweep must be true or false")
+        if tr.get("easing", "out") not in EASINGS:
+            r.error(where, f"transition easing must be one of {', '.join(sorted(EASINGS))}")
         tdur = float(tr.get("duration", 0.5))
         if i > 0 and ttype not in ("none", "cut"):
             prev = scenes[i - 1].get("duration") or 0
@@ -359,8 +364,12 @@ def compile_timeline(ws: Workspace) -> tuple[dict, Report]:
         tr_out = {"type": ttype if i else "none", "frames": tframes}
         if ttype in ("wipe", "push"):
             tr_out["direction"] = tr.get("direction", "right")
+        if ttype == "wipe" and tr.get("sweep") is False:
+            tr_out["sweep"] = False
         if ttype == "dip":
             tr_out["color"] = tr.get("color", "black")
+        if tr.get("easing") and ttype not in ("none", "cut"):
+            tr_out["easing"] = tr["easing"]
         scenes_out.append({
             "id": s["id"], "kind": s["kind"], "purpose": s["purpose"], "source": s.get("source"),
             "ref": s.get("ref"), "deviation": s.get("deviation"),

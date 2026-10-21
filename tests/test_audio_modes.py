@@ -170,7 +170,7 @@ class AudioModes(unittest.TestCase):
 
     def test_sound_modes_refuse_to_render_without_a_master(self):
         self._compile("effects")
-        with self.assertRaises(PromoError) as cm:
+        with self.assertRaises(PromoError) as cm, mock.patch.object(render, "free_gb", return_value=50.0):
             self._fake_render()
         self.assertIn("no audio master", str(cm.exception))
         rc = read_json(self.env.ws.render_config)
@@ -188,7 +188,8 @@ class AudioModes(unittest.TestCase):
             Path(cmd[5]).write_bytes(b"x")
             return subprocess.CompletedProcess(cmd, 0, "", "")
 
-        with mock.patch.object(render, "ensure_renderer"), mock.patch.object(render.subprocess, "run", fake_run):
+        with mock.patch.object(render, "ensure_renderer"), mock.patch.object(render.subprocess, "run", fake_run), \
+                mock.patch.object(render, "free_gb", return_value=50.0):  # independent of this machine's disk
             render.render(self.env.ws, "16:9")
         return cmds
 

@@ -213,8 +213,8 @@ def validate_config(cfg: dict) -> None:
         raise PromoError(f"unknown style preset '{cfg['style']['preset']}'",
                          hint=f"use one of {', '.join(sorted(STYLE_PRESETS))}")
     d = cfg["duration"]
-    if not (10 <= d["min"] <= d["max"] <= 300):
-        raise PromoError("duration must satisfy 10 <= min <= max <= 300 seconds")
+    if not (5 <= d["min"] <= d["max"] <= 300):
+        raise PromoError("duration must satisfy 5 <= min <= max <= 300 seconds")
     if int(cfg["format"]["fps"]) not in (24, 25, 30, 60):
         raise PromoError("fps must be 24, 25, 30 or 60")
 

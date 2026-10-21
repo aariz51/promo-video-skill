@@ -32,6 +32,9 @@ WATCH_INSTALL_HINT = (
     "Set PROMO_WATCH_SKILL_DIR if it lives somewhere else."
 )
 
+# The watch skill itself broke (not the video): an ffmpeg option or extraction step failed.
+TOOL_FAILURE = re.compile(r"Unrecognized option '[^']+'|frame extraction failed|scene extraction failed|"
+                          r"keyframe extraction failed")
 _FRAME = re.compile(r"^- `(?P<path>[^`]+)` \(t=(?P<t>[\d:]+), reason=(?P<reason>[^)]*)\)")
 _LINE = re.compile(r"^\[(?P<t>\d+:\d{2}(?::\d{2})?)\]\s*(?P<text>.*)$")
 _FIELD = re.compile(r"^- \*\*(?P<k>[^:*]+):\*\* (?P<v>.*)$")
@@ -126,8 +129,10 @@ def pacing_from_cuts(cuts: list[float], duration: float) -> dict:
     }
 
 
-def _run_watch(script: Path, source: str, out_dir: Path, detail: str) -> tuple[int, str, str]:
+def _run_watch(script: Path, source: str, out_dir: Path, detail: str, no_whisper: bool = False) -> tuple[int, str, str]:
     cmd = [sys.executable, str(script), source, "--detail", detail, "--out-dir", str(out_dir)]
+    if no_whisper:
+        cmd.append("--no-whisper")  # never send audio to a paid transcription API
     res = subprocess.run(cmd, capture_output=True, text=True)
     return res.returncode, res.stdout, res.stderr
 
@@ -166,7 +171,7 @@ def _video_in(paths) -> Path | None:
 
 
 def watch(ws: Workspace, source: str, *, detail: str = "balanced", script: Path | None = None,
-          refresh: bool = False) -> dict:
+          refresh: bool = False, no_whisper: bool = False) -> dict:
     """Watch the reference and measure it: inspiration/evidence.json, pacing.json and
     reference/breakdown.json (+ frames and contact sheets).
 
@@ -192,27 +197,46 @@ def watch(ws: Workspace, source: str, *, detail: str = "balanced", script: Path 
                 script = None
         work.mkdir(parents=True, exist_ok=True)
         if script is not None:
-            code, out, err = _run_watch(script, src, work, detail)
+            code, out, err = _run_watch(script, src, work, detail, no_whisper)
             used = src
             if (code != 0 or "## Frames" not in out) and video_id:
                 fb = _fallback_download(src, work / "fallback")
                 if fb:
-                    code, out, err = _run_watch(script, str(fb), work, detail)
+                    code, out, err = _run_watch(script, str(fb), work, detail, no_whisper)
                     used = str(fb)
-            if code != 0 or "## Frames" not in out:
+            tool_failure = code != 0 and bool(TOOL_FAILURE.search(err or ""))
+            if (code != 0 or "## Frames" not in out) and not tool_failure:
                 tail = "\n  ".join((err or out).strip().splitlines()[-6:])
                 raise PromoError(
                     f"could not analyse the reference video ({src}).\n  {tail}",
                     hint="check the URL is public, not age/region-locked, and points at one video (or supply a local "
                          "file), or continue without a reference (autonomous mode). No analysis is invented.",
                 )
-            (ws.inspiration_dir / "watch-report.md").write_text(out)
-            ev = parse_report(out)
-            if not ev["frames"]:
-                raise PromoError("the watch skill returned no frames, so the video cannot be analysed visually",
-                                 hint="re-run with a different URL or check `yt-dlp` can download it")
-            video_file = _video_in([Path(used)] + sorted((work / "download").glob("video.*")))
-            used_watch, note = True, "watch skill"
+            if tool_failure:
+                # The skill ran but its frame extraction broke on this machine's ffmpeg (claude-video
+                # 0.2.0 passes -vsync, which ffmpeg 7+ removed). Keep what still works, its
+                # transcript, and measure the frames with promo's own analyzer instead.
+                reason = TOOL_FAILURE.search(err).group(0)
+                code_t, out_t, _ = _run_watch(script, src, work, "transcript", no_whisper)
+                ev = parse_report(out_t) if code_t == 0 else {"title": None, "duration": 0.0, "resolution": None,
+                                                              "frames": [], "transcript": {"available": False,
+                                                              "source": "not available (watch failed)", "lines": []}}
+                if code_t == 0:
+                    (ws.inspiration_dir / "watch-report.md").write_text(out_t)
+                ev["frames"] = []
+                video_file = _video_in([Path(src)] + sorted((work / "download").glob("video.*"))) \
+                    or _download(src, work / "download")
+                used_watch = code_t == 0
+                note = (f"watch skill frame extraction failed on this ffmpeg ({reason}); "
+                        f"transcript {'from watch' if code_t == 0 else 'unavailable'}, frames measured by promo")
+            else:
+                (ws.inspiration_dir / "watch-report.md").write_text(out)
+                ev = parse_report(out)
+                if not ev["frames"]:
+                    raise PromoError("the watch skill returned no frames, so the video cannot be analysed visually",
+                                     hint="re-run with a different URL or check `yt-dlp` can download it")
+                video_file = _video_in([Path(used)] + sorted((work / "download").glob("video.*")))
+                used_watch, note = True, "watch skill"
         else:
             video_file = Path(src) if ref.kind == "file" else _download(src, work / "download")
             ev = {"title": None, "duration": 0.0, "resolution": None, "frames": [],
@@ -249,7 +273,7 @@ def watch(ws: Workspace, source: str, *, detail: str = "balanced", script: Path 
         "transcript": ev.get("transcript"),
         "pacing": pacing,
         "breakdown": "reference/breakdown.json",
-        "report": "inspiration/watch-report.md" if used_watch else None,
+        "report": "inspiration/watch-report.md" if (ws.inspiration_dir / "watch-report.md").exists() else None,
     }
     write_json(ws.evidence, evidence)
     evidence["reference"] = bd

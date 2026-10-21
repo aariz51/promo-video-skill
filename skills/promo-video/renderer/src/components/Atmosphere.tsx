@@ -11,8 +11,10 @@ export const Ground: React.FC<{ glow?: number; x?: number; y?: number }> = ({
   y = 0.45,
 }) => {
   const s = useStyle();
+  // Opaque base: the pool of light is translucent at its centre, and during a transition
+  // the previous scene is still rendering underneath. Without this it shows through.
   return (
-    <AbsoluteFill>
+    <AbsoluteFill style={{ backgroundColor: s.ground }}>
       <AbsoluteFill
         style={{
           background: `radial-gradient(ellipse 70% 60% at ${x * 100}% ${y * 100}%, ${alpha(s.accent, 0.1 * glow)} 0%, ${s.ground2} ${

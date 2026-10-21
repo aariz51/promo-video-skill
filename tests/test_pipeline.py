@@ -247,6 +247,9 @@ class CreativeTransformation(unittest.TestCase):
             self.assertEqual(len(adapter.framework_beats()), 13)
             self.assertIn("§4 Hook", md)
             self.assertIn("- C3: Receipts never leave your machine", md)
+            # The plan fills the chosen runtime (config 30–100 s → 65 s), not the beats' default ~94 s.
+            last = [ln for ln in artifacts.sections(md)["SCENE PLAN"].splitlines() if ln.startswith("| 13 |")][0]
+            self.assertIn("–1:05.0 |", last)
             rep = artifacts.check_creative(md, claims=artifacts.parse_claims(helpers.BRIEF), source="framework")
             self.assertIn("unfilled placeholders", rep.summary(), "a scaffold is not a finished prompt")
             with self.assertRaises(PromoError):
@@ -418,7 +421,8 @@ class RenderFailures(unittest.TestCase):
         env = {"PATH": f"{bindir}{os.pathsep}{os.environ['PATH']}"}
         self.env.ws.master_audio.parent.mkdir(parents=True, exist_ok=True)
         self.env.ws.master_audio.write_bytes(b"RIFF")  # the audio step ran; only the renderer fails
-        with mock.patch.object(render, "RENDERER_DIR", fake), mock.patch.dict(os.environ, env):
+        with mock.patch.object(render, "RENDERER_DIR", fake), mock.patch.dict(os.environ, env), \
+                mock.patch.object(render, "free_gb", return_value=50.0):
             with self.assertRaises(PromoError) as cm:
                 render.render(self.env.ws, "16:9")
         self.assertIn("crashed at frame 812", str(cm.exception))
@@ -501,6 +505,17 @@ class QualityAssurance(unittest.TestCase):
         self.assertIn("unknown effect source", msgs)
         self.assertIn("long files can carry music", msgs)
 
+    def test_static_or_empty_scenes_are_rejected(self):
+        flat = self.env.ws.out_dir / "flat.mp4"
+        flat.parent.mkdir(parents=True, exist_ok=True)
+        ffmpeg("-f", "lavfi", "-i", "color=c=0x101010:s=320x180:d=4:r=30", "-pix_fmt", "yuv420p", str(flat))
+        rep, rows = qa.check_motion(flat, self.rc)
+        self.assertEqual(len(rows), 2)
+        self.assertIn("barely changes", rep.summary())
+        self.assertIn("never shows any content", rep.summary())
+        moving = self._video("moving.mp4")
+        self.assertTrue(qa.check_motion(moving, self.rc)[0].ok)
+
     def test_narration_must_sit_inside_its_scene(self):
         good = {"lines": [{"at": 0.5, "seconds": 1.2, "scene": "hook"}]}
         self.assertTrue(qa.check_narration(good, self.rc).ok)
@@ -509,7 +524,17 @@ class QualityAssurance(unittest.TestCase):
         self.assertIn("0 voice lines rendered", qa.check_narration({"lines": []}, self.rc).summary())
 
     def test_full_qa_writes_the_report(self):
-        self._video("promo-16x9.mp4")
+        # A "film" that does what the plan says: two moving scenes joined by a hard cut at 2.0 s.
+        self.rc["scenes"][1]["transition"] = {"type": "cut", "frames": 0}
+        write_json(self.env.ws.render_config, self.rc)
+        out = self.env.ws.out_dir / "promo-16x9.mp4"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        ffmpeg("-f", "lavfi", "-i", "testsrc2=s=1920x1080:d=4:r=30", "-f", "lavfi",
+               "-i", "sine=f=660:d=0.3,adelay=1000|1000,apad=whole_dur=4",
+               "-filter_complex", "[0:v]split[a][b];[b]trim=start=2,setpts=PTS-STARTPTS,negate[n];"
+               "[a]trim=end=2,setpts=PTS-STARTPTS[p];[p][n]concat=n=2:v=1[v]",
+               "-map", "[v]", "-map", "1:a", "-c:a", "aac", "-shortest", "-pix_fmt", "yuv420p",
+               "-c:v", "libx264", "-preset", "ultrafast", str(out))
         self._master(["-f", "lavfi", "-i", "sine=f=660:d=0.3", "-filter_complex", "[1]adelay=1000|1000[b];[0][b]amix=inputs=2:normalize=0"])
         write_json(self.env.ws.root / "build" / "audio-manifest.json", self.MANIFEST)
         self.env.ws.vo_dir.mkdir(parents=True, exist_ok=True)
@@ -522,7 +547,15 @@ class QualityAssurance(unittest.TestCase):
         val = read_json(self.env.ws.qa_dir / "validation.json")
         self.assertEqual(val["result"], "PASS")
         self.assertEqual({c["id"]: c["status"] for c in val["checks"]},
-                         {"render": "PASS", "encoding": "PASS", "timeline": "PASS", "narration": "PASS", "audio": "PASS"})
+                         {"render": "PASS", "encoding": "PASS", "timeline": "PASS", "motion": "PASS",
+                          "transitions": "PASS", "narration": "PASS", "audio": "PASS"})
+        self.assertIn("| title | 2.0 s | cut |", report)
+        # The same file against a plan it does not match: the transition check names the difference.
+        self.rc["scenes"][1]["transition"] = {"type": "dip", "frames": 15, "color": "white"}
+        write_json(self.env.ws.render_config, self.rc)
+        self.assertIn("planned dip white", qa.run_qa(self.env.ws, {"16:9": out}).summary())
+        self.rc["scenes"][1]["transition"] = {"type": "cut", "frames": 0}
+        write_json(self.env.ws.render_config, self.rc)
         self.assertEqual(len(list((self.env.ws.qa_dir / "frames" / "16x9").glob("*.jpg"))), 4)
         missing = qa.run_qa(self.env.ws, {"16:9": self.env.ws.out_dir / "nope.mp4"})
         self.assertIn("was not produced", missing.summary())

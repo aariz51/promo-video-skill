@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Easing, interpolate, useCurrentFrame } from "remotion";
 import { EASE } from "./animations/easings";
 import { Bloom } from "./components/Bloom";
 import { Whoosh } from "./components/Whoosh";
@@ -57,11 +57,19 @@ export const TransitionFrame: React.FC<{
   let shift = "";
   let dipVeil = 0; // 0–1 opacity of the dip colour drawn over both pictures
 
+  const curve =
+    enter.easing === "linear"
+      ? Easing.linear
+      : enter.easing === "in"
+        ? EASE.in
+        : enter.easing === "inOut"
+          ? EASE.inOut
+          : EASE.out;
   const ei =
     enter.frames > 0
       ? interpolate(frame, [0, enter.frames], [0, 1], {
           ...clamp,
-          easing: EASE.out,
+          easing: curve,
         })
       : 1;
   switch (enter.type) {
@@ -144,8 +152,8 @@ export const TransitionFrame: React.FC<{
           }}
         />
       ) : null}
-      {enter.type === "wipe" && enter.frames > 0 ? (
-        <Whoosh frame={frame} start={-4} span={enter.frames + 8} />
+      {enter.type === "wipe" && enter.frames > 0 && enter.sweep !== false ? (
+        <Whoosh progress={ei} direction={enter.direction ?? "right"} />
       ) : null}
     </AbsoluteFill>
   );

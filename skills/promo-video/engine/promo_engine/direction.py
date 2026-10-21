@@ -62,6 +62,12 @@ def implementation(tr: dict) -> dict:
     out = {"type": kind, "duration": round(max(0.2, tr["duration"]), 2) if kind != "cut" else 0}
     if tr["type"].startswith("wipe-"):
         out["direction"] = tr["type"].split("-", 1)[1]
+        out["sweep"] = False  # the measured wipe is a clean edge; no light sweep the reference lacks
+    curve = (tr.get("detail") or {}).get("alpha") or (tr.get("detail") or {}).get("coverage")
+    if kind in ("fade", "wipe") and curve:
+        from .reference import easing_of
+        if easing_of(curve):
+            out["easing"] = easing_of(curve)  # the reference's speed profile, measured
     if tr["type"] in ("dip-black", "dip-white", "flash"):
         out["color"] = "white" if tr["type"] == "dip-white" else "black"
         if tr["type"] == "flash":
@@ -302,13 +308,13 @@ def target_runtime(bd: dict, cfg: dict) -> float:
 
 
 def spans(bd: dict) -> dict[str, float]:
-    """Each measured scene's share of the clock: its own length plus half of each gradual
-    transition beside it (the renderer overlaps transitions onto the scenes they join)."""
+    """Each measured scene's share of the clock: its own length plus the whole transition
+    into it. The renderer plays a transition over the first frames of the incoming scene, so
+    each scene then starts exactly where the reference's transition into it starts."""
     out = {}
     for sc in bd["scenes"]:
         tr_in = next((t for t in bd["transitions"] if t["to"] == sc["id"]), None)
-        tr_out = next((t for t in bd["transitions"] if t["from"] == sc["id"]), None)
-        out[sc["id"]] = sc["duration"] + (tr_in["duration"] / 2 if tr_in else 0) + (tr_out["duration"] / 2 if tr_out else 0)
+        out[sc["id"]] = sc["duration"] + (tr_in["duration"] if tr_in else 0)
     return out
 
 

@@ -167,6 +167,68 @@ def check_video(path: Path, aspect: str, rc: dict, scale: float = 1.0) -> tuple[
     return r, facts
 
 
+ANIMATED = 0.004  # mean |ΔY| between a scene's start, middle and end; camera drift alone is ~0.003
+EMPTY = 0.0018  # detail (local high-frequency energy) a scene must reach in at least one sampled frame;
+#                bare ground with grain and vignette measures ~0.0011
+
+
+def check_motion(path: Path, rc: dict) -> tuple[Report, list[dict]]:
+    """Every scene animates (its start, middle and end frames differ beyond camera drift)
+    and none is empty, measured on the encoded file."""
+    from . import reference as R
+    r = Report()
+    Y = [R._luma(f) for f in R._decode(path, rc["fps"], R.SIG_W, R.SIG_H)]
+    rows = []
+    for sc in rc["scenes"]:
+        a, n = sc["from"], sc["durationInFrames"]
+        s0 = min(len(Y) - 1, a + sc["transition"]["frames"] + 2)
+        m, e = min(len(Y) - 1, a + n // 2), min(len(Y) - 1, a + n - 3)
+        change = max(R._mad(Y[s0], Y[m]), R._mad(Y[m], Y[e]))
+        samples = [min(len(Y) - 1, s0 + (e - s0) * k // 4) for k in range(5)]
+        most = max(R.detail(Y[k]) for k in samples)
+        rows.append({"scene": sc["id"], "change": round(change, 4), "detail": round(most, 5),
+                     "frames": [round(x / rc["fps"], 2) for x in (s0, m, e)]})
+        if change < ANIMATED:
+            r.error("motion", f"scene '{sc['id']}' barely changes between its start, middle and end "
+                    f"({change:.4f}); a scene needs a purposeful animation")
+        if most < EMPTY:
+            r.error("motion", f"scene '{sc['id']}' never shows any content (detail {most:.4f})")
+    return r, rows
+
+
+def check_transitions(path: Path, rc: dict) -> tuple[Report, list[dict]]:
+    from . import reference as R
+    r = Report()
+    rows = R.verify_transitions(path, rc)
+    for row in rows:
+        if not row["ok"]:
+            r.error("transitions", f"into '{row['scene']}' at {row.get('at', '?')}s: planned {row['planned']}, "
+                    f"the file shows {row['observed']}")
+    return r, rows
+
+
+def check_reference(rows: list[dict], rc: dict, bd: dict) -> tuple[Report, list[dict]]:
+    """Mode B: each measured reference transition is realised by the film, as measured in it."""
+    r = Report()
+    observed = {row["scene"]: row for row in rows}
+    out = []
+    for sc in rc["scenes"]:
+        refs = sc.get("ref")
+        refs = [refs] if isinstance(refs, str) else list(refs or [])
+        tr = next((t for t in bd["transitions"] if refs and t["to"] == refs[0]), None)
+        if not tr:
+            continue
+        got = observed.get(sc["id"])
+        row = {"reference": tr["id"], "measured": tr["type"], "scene": sc["id"],
+               "planned": sc["transition"]["type"], "observed": got["observed"] if got else "—",
+               "deviation": sc.get("deviation"), "ok": bool(got and got["ok"])}
+        out.append(row)
+        if not row["ok"] and not row["deviation"]:
+            r.error("reference", f"reference {tr['id']} ({tr['type']}) into '{sc['id']}' is not visible in the film "
+                    f"(observed: {row['observed']})")
+    return r, out
+
+
 def check_narration(vo_manifest: dict, rc: dict) -> Report:
     r = Report()
     fps = rc["fps"]
@@ -222,6 +284,14 @@ def run_qa(ws: Workspace, videos: dict[str, Path], quality: str = "final") -> Re
             continue
         r, f = check_video(path, aspect, rc, render_scale(aspect, quality))
         rep.extend(r)
+        mr, f["motion"] = check_motion(path, rc)
+        tr, f["transitions"] = check_transitions(path, rc)
+        rep.extend(mr)
+        rep.extend(tr)
+        bd_path = ws.reference_dir / "breakdown.json"
+        if rc.get("source") in ("reference", "inspiration") and bd_path.exists() and "reference" not in facts:
+            rr, facts["reference"] = check_reference(f["transitions"], rc, read_json(bd_path))
+            rep.extend(rr)
         f["stills"] = [_rel(x, ws.root) for x in export_stills(path, rc, ws.qa_dir / "frames" / aspect.replace(":", "x"))]
         f["file"] = _rel(f["file"], ws.root)
         facts["videos"][aspect] = f
@@ -257,6 +327,9 @@ CHECKS = [  # id, the Issue.where values that belong to it, what it verifies
     ("render", ("render",), "every requested file exists and is non-empty"),
     ("encoding", None, "resolution, frame rate, duration, decode, black and frozen stretches, audio stream per mode"),
     ("timeline", ("timeline",), "scene timing adds up; no scene under 0.5 s"),
+    ("motion", ("motion",), "every scene animates between its start, middle and end, and none is empty"),
+    ("transitions", ("transitions",), "each planned transition is measured in the file where the plan puts it"),
+    ("reference", ("reference",), "Mode B: every measured reference transition is visible in the film"),
     ("narration", ("narration",), "voice lines match the plan and the audio mode, sit in their scenes, never overlap"),
     ("audio", ("audio",), "mix sources match the audio mode; no music; silence between cues"),
 ]
@@ -271,7 +344,10 @@ def validation(rep: Report, facts: dict, rc: dict) -> dict:
         checks.append({"id": cid, "verifies": what,
                        "status": "FAIL" if any(i.level == "error" for i in mine) else "PASS",
                        "messages": [str(i) for i in mine]})
+    if not facts.get("reference"):
+        checks = [c for c in checks if c["id"] != "reference"]  # autonomous films have no reference
     return {"result": "PASS" if rep.ok else "FAIL", "product": rc["product"], "source": rc["source"],
+            "reference": facts.get("reference"),
             "audioPolicy": facts.get("audioPolicy"), "duration": rc["duration"], "fps": rc["fps"],
             "scenes": len(rc["scenes"]), "checks": checks, "videos": facts["videos"]}
 
@@ -299,11 +375,27 @@ def report_md(rep: Report, facts: dict, rc: dict) -> str:
              "- Audio present; mix contains only library effects, voice and (optional) non-melodic ambience",
              "- Near-silence wherever no cue or line is sounding, in the master and in each encoded file: "
              "no background music, no bed, and no speech in effects-only mode",
+             "- Every scene animates (start / middle / end frames differ beyond camera drift) and none is empty",
+             "- Each planned transition is measured in the encoded file at its planned time (cut, fade, wipe "
+             "direction, dip colour)",
+             "- Mode B: every measured reference transition is visible in the film",
              "- Two stills per scene exported for visual review (text overflow, layout)", "", "## Files", ""]
     for aspect, f in facts["videos"].items():
         lines.append(f"- {aspect}: `{f['file']}` · {f.get('width')}×{f.get('height')} · {f.get('fps')} fps · "
                      f"{f.get('duration')} s · audio {(f.get('audio') or {}).get('codec', 'none')} · "
                      f"mean {f.get('meanVolume', '?')} dB · {f['bytes'] / 1e6:.1f} MB")
+    for aspect, f in facts["videos"].items():
+        if f.get("transitions"):
+            lines += ["", f"### Transitions measured in the {aspect} file", "", "| Into | At | Planned | Observed | OK |",
+                      "|---|---|---|---|---|"]
+            lines += [f"| {t['scene']} | {t.get('at', '?')} s | {t['planned']} | {t['observed']} | "
+                      f"{'yes' if t['ok'] else '**no**'} |" for t in f["transitions"]]
+        break
+    if facts.get("reference"):
+        lines += ["", "### Reference transitions in the film", "", "| Reference | Measured | Scene | Observed | OK |",
+                  "|---|---|---|---|---|"]
+        lines += [f"| {x['reference']} | {x['measured']} | {x['scene']} | {x['observed']} | "
+                  f"{'yes' if x['ok'] else ('deviation' if x['deviation'] else '**no**')} |" for x in facts["reference"]]
     lines += ["", f"Narration: {facts['narrationLines']} lines via {facts['voiceEngine'] or 'none'}", "",
               "## Issues", ""]
     lines += [f"- {i}" for i in rep.issues] or ["- none"]

@@ -65,7 +65,8 @@ def probe(video: str | Path) -> dict:
     if not v:
         raise PromoError(f"the reference has no video stream: {Path(video).name}")
     a = next((s for s in info.get("streams", []) if s.get("codec_type") == "audio"), None)
-    dur = float((info.get("format") or {}).get("duration") or v.get("duration") or 0)
+    # The picture's length, not the container's: an audio track can run past the last frame.
+    dur = float(v.get("duration") or (info.get("format") or {}).get("duration") or 0)
     if dur <= 0:
         raise PromoError("the reference has no measurable duration (truncated or still image?)")
     num, den = (int(x) for x in (v.get("avg_frame_rate") or v.get("r_frame_rate") or "0/1").split("/"))
@@ -104,6 +105,36 @@ def _frame_at(video: Path, t: float, w: int, h: int) -> bytes | None:
 
 def _luma(rgb: bytes) -> list[float]:
     return [(rgb[i] * 299 + rgb[i + 1] * 587 + rgb[i + 2] * 114) / 255000 for i in range(0, len(rgb), 3)]
+
+
+def _std(y: list[float]) -> float:
+    m = sum(y) / len(y)
+    return math.sqrt(sum((x - m) ** 2 for x in y) / len(y))
+
+
+def _z(y: list[float]) -> list[float]:
+    m, s = sum(y) / len(y), max(_std(y), 0.004)
+    return [(x - m) / s for x in y]
+
+
+def detail(y: list[float], w: int = SIG_W, h: int = SIG_H) -> float:
+    """Mean local high-frequency energy (a discrete Laplacian): text, edges and UI score;
+    a vignette or a soft gradient does not. Measures whether a frame shows anything."""
+    t = 0.0
+    for r in range(1, h - 1):
+        row = r * w
+        for c in range(1, w - 1):
+            i = row + c
+            t += abs(4 * y[i] - y[i - 1] - y[i + 1] - y[i - w] - y[i + w])
+    return t / ((w - 2) * (h - 2) * 4)
+
+
+def easing_of(curve: list[float]) -> str | None:
+    """Name the speed profile of a measured progress curve (dissolve α or wipe coverage)."""
+    if not curve or len(curve) < 3:
+        return None
+    mid = curve[len(curve) // 2]
+    return "out" if mid > 0.68 else "in" if mid < 0.32 else "linear"
 
 
 def _mad(a: list[float], b: list[float]) -> float:
@@ -202,10 +233,54 @@ def _classify_run(Y: list[list[float]], pre: int, post: int) -> tuple[str, dict]
     lum = [sum(Y[k]) / len(Y[k]) for k in range(pre, post + 1)]
     lo, hi = min(lum[1:-1] or lum), max(lum[1:-1] or lum)
     ends_lo, ends_hi = min(lum[0], lum[-1]), max(lum[0], lum[-1])
-    if lo < DARK and ends_lo > lo + 0.06:
-        return "dip-black", {"minLuma": round(lo, 3)}
-    if hi > LIGHT and ends_hi < hi - 0.06:
-        return "dip-white", {"maxLuma": round(hi, 3)}
+    if _is_dip(lum):
+        return ("dip-black", {"minLuma": round(lo, 3)}) if lo < DARK else ("dip-white", {"maxLuma": round(hi, 3)})
+    # Wipe first: a travelling partition is specific, whereas on sparse frames one global
+    # blend factor can also fit a wipe. Wipe: each inner frame splits into a part that matches the end and a part that
+    # matches the start, and the split moves monotonically across the frame.
+    for axis in ("x", "y"):
+        n_lines = SIG_W if axis == "x" else SIG_H
+        lines = [[r * SIG_W + i for r in range(SIG_H)] if axis == "x" else list(range(i * SIG_W, i * SIG_W + SIG_W))
+                 for i in range(n_lines)]
+        # Only lines where the two pictures differ can say which one they show; a shared
+        # background votes for neither.
+        informative = [i for i, idx in enumerate(lines) if sum(abs(ys[j] - ye[j]) for j in idx) / len(idx) > 0.02]
+        if len(informative) < 0.25 * n_lines:
+            continue
+        fracs, sides, held = [], [], []
+        for k in range(pre + 1, post):
+            yk, labels, res = Y[k], [], []
+            for i in informative:
+                idx = lines[i]
+                ds = sum(abs(yk[j] - ys[j]) for j in idx)
+                de = sum(abs(yk[j] - ye[j]) for j in idx)
+                labels.append(de < ds)
+                res.append((i, min(ds, de), sum(abs(ys[j] - ye[j]) for j in idx)))
+            # In a wipe each line shows one picture or the other, unmoved; in a pan it shows
+            # neither. Lines near the moving edge are ignored: promos often ride a light sweep there.
+            if 0 < sum(labels) < len(labels):
+                edge = next(informative[m] for m in range(1, len(labels)) if labels[m] != labels[m - 1])
+                far = [(r, c) for i, r, c in res if abs(i - edge) > 0.2 * n_lines]
+                if far:
+                    held.append(sum(r for r, _ in far) / max(sum(c for _, c in far), 1e-9))
+            changes = sum(1 for a, b in zip(labels, labels[1:]) if a != b)
+            fracs.append(sum(labels) / len(labels))
+            # Which end the new picture holds; a stray line or two inside the run is noise.
+            if changes <= 4:
+                sides.append("lead" if labels[0] and not labels[-1] else "trail" if labels[-1] and not labels[0] else None)
+            else:
+                sides.append("mixed")
+        partial = [f for f in fracs if 0.08 < f < 0.92]
+        # Overlays (a light sweep, the incoming scene's own entrance) can blur a few frames.
+        clean = sum(1 for s in sides if s in ("lead", "trail", None))
+        if partial and clean >= 0.7 * len(sides) and (not held or statistics.median(held) < 0.35) and \
+                all(b >= a - 0.08 for a, b in zip(fracs, fracs[1:])):
+            known = [s for s in sides if s in ("lead", "trail")]
+            if known and all(s == known[0] for s in known):
+                # "lead": the new picture covers the left/top first, so the edge travels right/down.
+                d = {("x", "lead"): "right", ("x", "trail"): "left", ("y", "lead"): "down", ("y", "trail"): "up"}
+                return f"wipe-{d[(axis, known[0])]}", {"coverage": [round(f, 2) for f in fracs],
+                                                       "informativeLines": len(informative)}
     # Dissolve: each inner frame ≈ (1-α)·start + α·end, with α rising.
     diff = [e - s for s, e in zip(ys, ye)]
     norm = sum(d * d for d in diff)
@@ -217,35 +292,21 @@ def _classify_run(Y: list[list[float]], pre: int, post: int) -> tuple[str, dict]
             alphas.append(alpha)
             resid.append(sum(abs(x - (s + alpha * d)) for x, s, d in zip(yk, ys, diff)) / len(yk))
         rising = all(b >= a - 0.08 for a, b in zip(alphas, alphas[1:]))
-        if rising and statistics.fmean(resid) < 0.02 and alphas[0] < 0.6 and alphas[-1] > 0.4:
+        # Residual relative to how much changed: a dark film's blend has small absolute errors.
+        limit = min(0.02, max(0.004, 0.25 * math.sqrt(norm / len(diff))))
+        if rising and statistics.fmean(resid) < limit and alphas[0] < 0.6 and alphas[-1] > 0.4:
             return "dissolve", {"alpha": [round(a, 2) for a in alphas], "residual": round(statistics.fmean(resid), 4)}
-    # Wipe: each inner frame splits into a part that matches the end and a part that
-    # matches the start, and the split moves monotonically across the frame.
-    for axis in ("x", "y"):
-        n_lines = SIG_W if axis == "x" else SIG_H
-        fracs, sides = [], []
-        for k in range(pre + 1, post):
-            yk, labels = Y[k], []
-            for i in range(n_lines):
-                idx = [r * SIG_W + i for r in range(SIG_H)] if axis == "x" else list(range(i * SIG_W, i * SIG_W + SIG_W))
-                ds = sum(abs(yk[j] - ys[j]) for j in idx)
-                de = sum(abs(yk[j] - ye[j]) for j in idx)
-                labels.append(de < ds)
-            changes = sum(1 for a, b in zip(labels, labels[1:]) if a != b)
-            fracs.append(sum(labels) / n_lines)
-            if changes <= 2:
-                sides.append("lead" if labels[0] and not labels[-1] else "trail" if labels[-1] and not labels[0] else None)
-            else:
-                sides.append("mixed")
-        partial = [f for f in fracs if 0.08 < f < 0.92]
-        if partial and all(s in ("lead", "trail", None) for s in sides) and \
-                all(b >= a - 0.05 for a, b in zip(fracs, fracs[1:])):
-            known = [s for s in sides if s in ("lead", "trail")]
-            if known and all(s == known[0] for s in known):
-                # "lead": the new picture covers the left/top first, so the edge travels right/down.
-                d = {("x", "lead"): "right", ("x", "trail"): "left", ("y", "lead"): "down", ("y", "trail"): "up"}
-                return f"wipe-{d[(axis, known[0])]}", {"coverage": [round(f, 2) for f in fracs]}
     return "gradual", {}
+
+
+def _is_dip(lum: list[float]) -> bool:
+    """The picture sinks to black (or rises to white) well below (above) both ends."""
+    inner = lum[1:-1] or lum
+    lo, hi = min(inner), max(inner)
+    ends_lo, ends_hi = min(lum[0], lum[-1]), max(lum[0], lum[-1])
+    if lo < DARK and ends_lo - lo > max(0.02, 0.5 * ends_lo):
+        return True
+    return hi > LIGHT and hi - ends_hi > max(0.02, 0.5 * (1 - ends_hi))
 
 
 def camera_move(Y: list[list[float]], pre: int, post: int, fps: float) -> bool:
@@ -293,25 +354,36 @@ def detect(Y: list[list[float]], times: list[float]) -> dict:
     """Cuts and gradual transitions from the luma signal; opening/closing fades."""
     n = len(Y)
     d = [0.0] + [_mad(Y[i], Y[i - 1]) for i in range(1, n)]
+    # Thresholds follow the film: a dark, low-contrast promo changes less per frame than a
+    # bright one, so absolute limits alone would miss its transitions.
+    noise = statistics.median(d[1:]) if n > 1 else 0.0
+    contrast = statistics.median(_std(Y[i]) for i in range(0, n, max(1, n // 200)))
+    grad_t = min(GRAD_T, max(0.0012, 5 * noise))
+    cut_t = min(CUT_T, max(0.03, 0.9 * contrast))
+    structured = max(0.008, 0.35 * contrast)
     events: list[dict] = []
     is_cut = [False] * n
     for i in range(1, n):
         win = [d[j] for j in range(max(1, i - 5), min(n, i + 6)) if j != i]
         med = statistics.median(win) if win else 0.0
         neigh = max(d[i - 1] if i > 1 else 0.0, d[i + 1] if i + 1 < n else 0.0)
-        if d[i] > max(CUT_T, 4 * med) and d[i] > 2 * neigh:
+        if d[i] > max(cut_t, 4 * med) and d[i] > 2 * neigh:
             is_cut[i] = True
             events.append({"type": "cut", "i0": i - 1, "i1": i, "score": round(d[i], 3)})
     # Gradual runs: consecutive elevated frames, split at cuts.
     i = 1
     opening = closing = None
     while i < n:
-        if d[i] > GRAD_T and not is_cut[i]:
+        if d[i] > grad_t and not is_cut[i]:
             j = i
-            while j + 1 < n and d[j + 1] > GRAD_T and not is_cut[j + 1]:
+            while j + 1 < n and d[j + 1] > grad_t and not is_cut[j + 1]:
                 j += 1
             pre, post = i - 1, j
-            if post - pre >= 2 and _mad(Y[pre], Y[post]) > CHANGE_T:
+            lum_run = [sum(Y[k]) / len(Y[k]) for k in range(pre, post + 1)]
+            both_structured = _std(Y[pre]) >= structured and _std(Y[post]) >= structured
+            changed = (_mad(Y[pre], Y[post]) > CHANGE_T or _is_dip(lum_run)
+                       or (both_structured and _mad(_z(Y[pre]), _z(Y[post])) > 0.5))
+            if post - pre >= 2 and changed:
                 lum_pre = sum(Y[pre]) / len(Y[pre])
                 lum_post = sum(Y[post]) / len(Y[post])
                 dark_before = all(sum(Y[k]) / len(Y[k]) < DARK for k in range(0, pre + 1))
@@ -321,8 +393,8 @@ def detect(Y: list[list[float]], times: list[float]) -> dict:
                 elif dark_after:
                     closing = {"type": "fade-out", "to": "black", "start": times[pre], "end": times[n - 1]}
                 else:
-                    kind, detail = _classify_run(Y, pre, post)
                     fps = 1 / (times[1] - times[0]) if len(times) > 1 else 25
+                    kind, detail = _classify_run(Y, pre, post)
                     if kind == "gradual" and camera_move(Y, pre, post, fps):
                         pass  # the camera moved inside one scene; not a boundary
                     else:
@@ -346,19 +418,24 @@ def detect(Y: list[list[float]], times: list[float]) -> dict:
                 continue
         merged.append(e)
     events = merged
-    # A gradual run never swallows a neighbouring cut: clip it to the frames between them.
+    # Events never overlap: a gradual run starts where the previous event ended, and a cut
+    # inside an earlier gradual run is part of it.
     clean: list[dict] = []
+    last = -1
     for e in events:
-        if clean and e["i0"] < clean[-1]["i1"]:
-            if e["type"] == "cut":
-                clean[-1]["i1"] = min(clean[-1]["i1"], e["i0"])
-            else:
-                e["i0"] = clean[-1]["i1"]
-            if e["i1"] <= e["i0"] and e["type"] != "cut":
+        if e["type"] == "cut":
+            if e["i1"] <= last:
+                continue
+        else:
+            e["i0"] = max(e["i0"], last)
+            if e["i1"] - e["i0"] < 2:
                 continue
         clean.append(e)
-    events = [e for e in clean if e["type"] == "cut" or e["i1"] > e["i0"]]
-    return {"events": events, "diff": d, "opening": opening, "closing": closing}
+        last = e["i1"]
+    events = clean
+    return {"events": events, "diff": d, "opening": opening, "closing": closing,
+            "thresholds": {"noise": round(noise, 5), "contrast": round(contrast, 4), "gradual": round(grad_t, 5),
+                           "cut": round(cut_t, 4), "structured": round(structured, 4)}}
 
 
 # ── scenes, measures, evidence ────────────────────────────────────────────────────
@@ -584,13 +661,14 @@ def analyze(video: str | Path, out_dir: str | Path, *, transcript: dict | None =
         for old in fdir.glob("*.jpg"):
             old.unlink()
     eps = min(0.1, 0.5 / fps_a + 0.02)
+    last = max(0.0, duration - 1.5 / (meta["fps"] or 25))  # a time that still has a frame
     for sc in scenes:
         pts = {"start": sc["start"] + eps, "mid": (sc["start"] + sc["end"]) / 2, "end": sc["end"] - eps}
         if sc["duration"] < 3 * eps:
             pts = {"mid": (sc["start"] + sc["end"]) / 2}
         sc["frames"] = []
         for tag, t in pts.items():
-            t = min(max(0.0, t), duration - 0.05)
+            t = min(max(0.0, t), last)
             f = extract_frame(video, t, fdir / f"{sc['id']}-{tag}-t{_fname(t)}.jpg")
             sc["frames"].append({"t": round(t, 3), "role": tag, "file": f.relative_to(out).as_posix()})
     for tr in trans:
@@ -599,7 +677,7 @@ def analyze(video: str | Path, out_dir: str | Path, *, transcript: dict | None =
             pts.pop("during")
         tr["frames"] = []
         for tag, t in pts.items():
-            t = min(max(0.0, t), duration - 0.05)
+            t = min(max(0.0, t), last)
             f = extract_frame(video, t, fdir / f"{tr['id']}-{tag}-t{_fname(t)}.jpg")
             tr["frames"].append({"t": round(t, 3), "role": tag, "file": f.relative_to(out).as_posix()})
     n_uniform = max(8, min(48, int(duration // 2)))
@@ -631,7 +709,8 @@ def analyze(video: str | Path, out_dir: str | Path, *, transcript: dict | None =
         "source": source or str(video),
         "video": str(video),
         "fingerprint": fp,
-        "analysis": {**params, "decodedSeconds": round(decoded, 2), "frames": len(frames)},
+        "analysis": {**params, "decodedSeconds": round(decoded, 2), "frames": len(frames),
+                     "adaptive": det["thresholds"]},
         "metadata": {**meta, "captions": _captions(transcript)},
         "scenes": scenes,
         "transitions": trans,
@@ -755,3 +834,50 @@ def summary(bd: dict) -> str:
             f"audio {'yes' if m['audio']['present'] else 'no'} · {ms['sceneCount']} scenes "
             f"(avg {ms['averageScene']} s) · transitions: {vocab}"
             + (" · cached" if bd.get("cached") else ""))
+
+
+# ── verifying our own output ──────────────────────────────────────────────────────
+
+# What each renderer transition must look like when measured in the encoded file.
+EXPECTED = {
+    "fade": {"dissolve", "gradual"},
+    "push": {"dissolve", "gradual", "wipe-left", "wipe-right", "wipe-up", "wipe-down"},
+    "zoom": {"dissolve", "gradual"},
+    "light": {"dissolve", "gradual", "dip-white"},
+}
+
+
+def verify_transitions(video: str | Path, rc: dict) -> list[dict]:
+    """Measure each planned transition where the plan says it is, in the encoded file.
+
+    Unlike `detect`, nothing is searched for: the window is known, so the check is whether
+    the picture there does what the plan says (a cut is one-frame change, a dip passes
+    through its colour, a wipe's edge travels its direction, a fade blends)."""
+    fps = rc["fps"]
+    frames = _decode(Path(video), fps, SIG_W, SIG_H)
+    Y = [_luma(f) for f in frames]
+    n = len(Y)
+    d = [0.0] + [_mad(Y[i], Y[i - 1]) for i in range(1, n)]
+    out = []
+    for sc in rc["scenes"][1:]:
+        tr = sc["transition"]
+        at = sc["from"]
+        if at >= n:
+            out.append({"scene": sc["id"], "planned": tr["type"], "observed": "missing (film too short)", "ok": False})
+            continue
+        if tr["type"] in ("cut", "none") or tr["frames"] == 0:
+            win = [d[j] for j in range(max(1, at - 8), min(n, at + 9)) if abs(j - at) > 1]
+            med = statistics.median(win) if win else 0.0
+            ok = d[at] > max(0.004, 3 * med)
+            out.append({"scene": sc["id"], "planned": "cut", "at": round(at / fps, 3),
+                        "observed": f"one-frame change {d[at]:.4f} (window median {med:.4f})", "ok": ok})
+            continue
+        pre, post = max(0, at - 1), min(n - 1, at + tr["frames"])
+        kind, _detail = _classify_run(Y, pre, post)
+        want = {"wipe": {f"wipe-{tr.get('direction', 'right')}"},
+                "dip": {f"dip-{tr.get('color', 'black')}"}}.get(tr["type"], EXPECTED.get(tr["type"], {kind}))
+        changed = _mad(Y[pre], Y[post]) > 0.004 or kind.startswith("dip")
+        out.append({"scene": sc["id"], "planned": tr["type"] + (f" {tr['direction']}" if tr.get("direction") else "")
+                    + (f" {tr['color']}" if tr.get("color") else ""),
+                    "at": round(at / fps, 3), "observed": kind, "ok": kind in want and changed})
+    return out

@@ -164,14 +164,19 @@ def scaffold(ws: Workspace, *, force: bool = False) -> Path:
                   f"- §12 factual accuracy: only claims C1…C{len(claims)} from the brief → for {name}: TODO",
                   "", "## PACING PLAN", "", "TODO: beat lengths, holds, acceleration, still ending, in seconds.", "",
                   "## SCENE PLAN", "",
-                  "Delete beats the product cannot support truthfully (see “Keep when”).", "",
+                  "Delete beats the product cannot support truthfully (see “Keep when”) and give their time to "
+                  "the beats that remain. Times are scaled to the target runtime.", "",
                   "| # | Time | Beat (source) | Product scene | Primitive | Evidence (claim ids) | Transition in | Sound | Narration |",
                   "|---|---|---|---|---|---|---|---|---|"]
+        # Default beat lengths fill ~94 s; scale them to the chosen runtime. Beats the product
+        # cannot support are deleted and their time given to the rest.
+        k = runtime / sum(b["length"] for b in beats)
         t = 0.0
         for b in beats:
-            lines.append(f"| {b['n']} | {_fmt(t)}–{_fmt(t + b['length'])} | §4 {b['beat']} (keep when: {b['keep']}) "
+            d = b["length"] * k
+            lines.append(f"| {b['n']} | {_fmt(t)}–{_fmt(t + d)} | §4 {b['beat']} (keep when: {b['keep']}) "
                          f"| TODO | TODO | TODO | TODO | TODO | TODO |")
-            t += b["length"]
+            t += d
     lines += ["", "## MOTION & VISUAL SYSTEM", "", "TODO: ground, accent, type, depth, camera grammar, transitions.",
               "", "## SOUND DESIGN", "", "No background music. TODO: layers and where they fire.",
               "", "## NARRATION", "", "TODO: one sparse line per beat, and one sentence of voice direction.",

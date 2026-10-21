@@ -1,33 +1,37 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useVideoConfig } from "remotion";
-import { EASE } from "../animations/easings";
+import { AbsoluteFill, useVideoConfig } from "remotion";
 import { alpha, useStyle } from "../style";
+import type { Direction } from "../types";
 
-// An accent-coloured smear that sweeps the frame with motion blur. Drive with a local frame.
+// An accent-coloured smear riding a wipe's edge, with motion blur. It takes the wipe's own
+// eased progress and direction, so the light and the reveal move as one edge.
 export const Whoosh: React.FC<{
-  frame: number;
-  start?: number;
-  span?: number;
-}> = ({ frame, start = 0, span = 20 }) => {
-  const { width } = useVideoConfig();
+  progress: number; // 0–1, the share of the frame the wipe has covered
+  direction: Direction; // the way the edge travels
+}> = ({ progress: p, direction }) => {
+  const { width, height } = useVideoConfig();
   const s = useStyle();
-  const p = interpolate(frame, [start, start + span], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-    easing: EASE.inOut,
-  });
   if (p <= 0 || p >= 1) return null;
+  const vertical = direction === "up" || direction === "down";
+  const span = vertical ? height : width;
+  const band = span * 0.35;
+  // Edge position along the travel axis, measured from the side the wipe starts on.
+  const edge = direction === "left" || direction === "up" ? (1 - p) * span : p * span;
+  const gradient = `linear-gradient(${vertical ? "180deg" : "90deg"}, rgba(0,0,0,0) 0%, ${alpha(
+    s.accent,
+    0.55,
+  )} 50%, rgba(0,0,0,0) 100%)`;
   return (
     <AbsoluteFill style={{ pointerEvents: "none", overflow: "hidden" }}>
       <div
         style={{
           position: "absolute",
-          left: interpolate(p, [0, 1], [-width * 0.9, width * 1.1]),
-          top: "-15%",
-          width: width * 0.7,
-          height: "130%",
-          transform: "skewX(-14deg)",
-          background: `linear-gradient(90deg, rgba(0,0,0,0) 0%, ${alpha(s.accent, 0.55)} 50%, rgba(0,0,0,0) 100%)`,
+          left: vertical ? "-10%" : edge - band / 2,
+          top: vertical ? edge - band / 2 : "-15%",
+          width: vertical ? "120%" : band,
+          height: vertical ? band : "130%",
+          transform: vertical ? "skewY(-6deg)" : "skewX(-14deg)",
+          background: gradient,
           filter: "blur(40px)",
           opacity: Math.sin(p * Math.PI),
         }}

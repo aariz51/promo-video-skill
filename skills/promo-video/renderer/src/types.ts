@@ -23,6 +23,8 @@ export type Transition = {
   frames: number;
   direction?: Direction;
   color?: "black" | "white";
+  easing?: "linear" | "in" | "out" | "inOut"; // measured from the reference in Mode B
+  sweep?: boolean; // wipe: the accent light riding the edge (default on; off for a measured plain wipe)
 };
 
 export type Style = {

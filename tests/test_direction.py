@@ -53,12 +53,23 @@ def fill_direction(md: str, bd: dict) -> str:
     return re.sub(r"^1\. Observed:.*$", rules, md, count=1, flags=re.M)
 
 
+BEATS = [("statement", {"text": "Where did this month go?", "eyebrow": "Every receipt, somewhere"}),
+         ("title", {"name": "Tallyboard", "tagline": "Receipts in. A finished report out."}),
+         ("compare", {"left": {"title": "By hand", "items": ["Sort receipts", "Type totals"]},
+                      "right": {"title": "Tallyboard", "items": ["Grouped by category", "Export CSV"]}}),
+         ("pillars", {"items": [{"title": "Drop"}, {"title": "Group"}, {"title": "Export"}]}),
+         ("statement", {"text": "Your receipts never leave your machine.", "eyebrow": "Local by design"})]
+
+
 def fill_timeline(tl: dict) -> dict:
-    """Give every skeleton scene a real primitive and purpose; keep the structure."""
+    """Give every skeleton scene a real, distinct primitive and purpose; keep the structure."""
     for i, s in enumerate(tl["scenes"]):
-        s["kind"] = "lockup" if i == len(tl["scenes"]) - 1 else "statement"
+        kind, props = ("lockup", {"name": "Tallyboard", "line": "Drop. Group. Export."}) \
+            if i == len(tl["scenes"]) - 1 else BEATS[i % len(BEATS)]
+        s["kind"], s["props"] = kind, json.loads(json.dumps(props))
         s["purpose"] = f"beat {i + 1}, following reference {s['ref']}"
-        s["props"] = {"name": "Tallyboard"} if s["kind"] == "lockup" else {"text": "Receipts in. A report out."}
+        if kind == "compare":
+            s["claims"] = ["C1", "C2"]
     return tl
 
 
@@ -83,7 +94,7 @@ class DirectionDocument(unittest.TestCase):
         for tr in self.bd["transitions"]:
             self.assertRegex(md, rf"\| {tr['id']} \| {tr['from']} → {tr['to']} \|")
         self.assertIn("| T02 | S02 → S03 | 0:04.8 | 0:05.4 | measured: wipe-left", md)
-        self.assertIn("wipe duration=0.6 direction=left", md)
+        self.assertIn("wipe duration=0.6 direction=left sweep=False easing=linear", md)
         self.assertIn("dip duration=0.8 color=black", md)
         rep = direction.check(md, self.bd, self.env.ws.root)
         self.assertFalse(rep.ok, "an unfilled scaffold must not pass")
@@ -97,7 +108,7 @@ class DirectionDocument(unittest.TestCase):
         defects = {
             "no breakdown for measured scene S03": lambda m: re.sub(r"### S03.*?(?=### S04)", "", m, flags=re.S),
             "does not exist": lambda m: m.replace("reference/frames/S01-mid", "reference/frames/S01-gone", 1),
-            "is not a renderer transition": lambda m: m.replace("| wipe duration=0.6 direction=left |", "| morph |"),
+            "is not a renderer transition": lambda m: m.replace("| wipe duration=0.6 direction=left sweep=False easing=linear |", "| morph |"),
             "which was not measured": lambda m: m.replace("as long as S02 does", "as long as S09 does", 1),
             "missing from TRANSITIONS": lambda m: re.sub(r"^\| T03 \|.*$\n", "", m, flags=re.M),
             "repeats the measurement without an observation":
@@ -107,7 +118,7 @@ class DirectionDocument(unittest.TestCase):
         }
         for needle, corrupt in defects.items():
             bad = corrupt(good)
-            self.assertNotEqual(bad, good, needle)
+            self.assertTrue(bad != good, f"the '{needle}' corruption did not change the document")
             self.assertIn(needle, direction.check(bad, self.bd, self.env.ws.root).summary(), needle)
 
     def test_direction_is_never_written_for_an_autonomous_run(self):
@@ -134,9 +145,14 @@ class ReferenceStoryboard(unittest.TestCase):
         bd = direction.load_breakdown(self.envs["slow"].ws)
         self.assertEqual([s["ref"] for s in tl["scenes"]], [s["id"] for s in bd["scenes"]])
         self.assertEqual([s.get("transition") for s in tl["scenes"]],
-                         [None, {"type": "fade", "duration": 0.6}, {"type": "wipe", "duration": 0.6, "direction": "left"},
-                          {"type": "dip", "duration": 0.8, "color": "black"}])
+                         [None, {"type": "fade", "duration": 0.6, "easing": "linear"},
+                          {"type": "wipe", "duration": 0.6, "direction": "left", "sweep": False, "easing": "linear"},
+                          {"type": "dip", "duration": 0.8, "color": "black"}])  # easing measured: xfade is linear
         self.assertAlmostEqual(sum(s["duration"] for s in tl["scenes"]), bd["metadata"]["duration"], delta=0.02)
+        # Each scene starts where the reference's transition into it starts, so the film's
+        # transitions play at the reference's times (the renderer runs them over the incoming scene).
+        starts = [round(sum(s["duration"] for s in tl["scenes"][:k]), 2) for k in range(1, len(tl["scenes"]))]
+        self.assertEqual(starts, [t["start"] for t in bd["transitions"]])
         self.assertEqual(tl["source"], "reference")
 
     def test_two_references_give_materially_different_films(self):
@@ -158,7 +174,8 @@ class ReferenceStoryboard(unittest.TestCase):
         a, b = rcs["rapid"][0], rcs["slow"][0]
         self.assertNotEqual([s["durationInFrames"] for s in a["scenes"]], [s["durationInFrames"] for s in b["scenes"]])
         self.assertNotEqual([s["transition"]["type"] for s in a["scenes"]], [s["transition"]["type"] for s in b["scenes"]])
-        self.assertEqual(b["scenes"][2]["transition"], {"type": "wipe", "frames": 18, "direction": "left"})
+        self.assertEqual(b["scenes"][2]["transition"],
+                         {"type": "wipe", "frames": 18, "direction": "left", "sweep": False, "easing": "linear"})
         self.assertEqual(b["scenes"][3]["transition"], {"type": "dip", "frames": 24, "color": "black"})
 
     def test_structure_is_enforced_unless_a_deviation_is_declared(self):
