@@ -11,7 +11,19 @@ export type TransitionType =
   | "light"
   | "push"
   | "wipe"
-  | "zoom";
+  | "zoom"
+  | "dip";
+
+export type Direction = "left" | "right" | "up" | "down";
+
+// How a scene arrives. `direction` (wipe, push) is the way the edge or picture travels;
+// `color` (dip) is what the picture passes through.
+export type Transition = {
+  type: TransitionType;
+  frames: number;
+  direction?: Direction;
+  color?: "black" | "white";
+};
 
 export type Style = {
   preset: "graphite" | "paper" | "midnight";
@@ -31,7 +43,7 @@ export type Scene = {
   purpose: string;
   from: number;
   durationInFrames: number;
-  transition: { type: TransitionType; frames: number };
+  transition: Transition;
   // Props differ per kind; each scene component narrows them.
   props: Record<string, unknown> & { _t: Record<string, unknown> };
   claims: string[];

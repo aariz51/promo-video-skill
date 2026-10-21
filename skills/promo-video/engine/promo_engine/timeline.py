@@ -18,14 +18,17 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from . import sound
+from . import direction, sound
 from .analyzer import image_size
 from .artifacts import parse_claims
-from .config import ASPECTS, QUALITY, Workspace, audio_mode
+from .config import ASPECTS, QUALITY, Workspace, audio_mode, mode
 from .util import PromoError, Report, ffprobe_json, fmt_time, read_json, write_json
 
 MEDIA_EXT = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".mp4", ".mov", ".webm", ".m4v"}
-TRANSITIONS = {"none", "cut", "fade", "light", "push", "wipe", "zoom"}
+TRANSITIONS = {"none", "cut", "fade", "light", "push", "wipe", "zoom", "dip"}
+DIRECTIONS = {"left", "right", "up", "down"}  # wipe / push: the way the edge (or picture) travels
+DIP_COLOURS = {"black", "white"}
+MIN_SCENE = 0.5  # seconds; fast references cut quicker than 1.5 s
 DEVICES = {"browser", "phone", "desktop", "none"}
 CAMERAS = {"push", "pan", "hold", "pull", "rise"}
 SPEECH_WPS = 2.7  # a calm, cinematic read
@@ -167,8 +170,13 @@ def validate(tl: dict, ws: Workspace, cfg: dict, claims: dict[str, dict]) -> Rep
     if not isinstance(scenes, list) or not scenes:
         r.error("timeline", "scenes must be a non-empty list")
         return r
-    if tl.get("source") not in ("framework", "inspiration"):
-        r.error("timeline", "source must be 'framework' or 'inspiration'")
+    if tl.get("source") not in ("framework", "inspiration", "reference"):
+        r.error("timeline", "source must be 'framework' (autonomous) or 'reference'")
+    ref_mode = mode(cfg) == "reference"
+    if ref_mode and tl.get("source") == "framework":
+        r.error("timeline", "a reference was supplied, so the timeline's source must be 'reference'")
+    if not ref_mode and tl.get("source") in ("reference", "inspiration"):
+        r.error("timeline", "no reference was supplied (autonomous mode), so the source must be 'framework'")
     style = tl.get("style", {})
     if style.get("preset", cfg["style"]["preset"]) not in ("graphite", "paper", "midnight"):
         r.error("timeline.style", "preset must be graphite, paper or midnight")
@@ -198,8 +206,8 @@ def validate(tl: dict, ws: Workspace, cfg: dict, claims: dict[str, dict]) -> Rep
         if not s.get("purpose"):
             r.error(where, "purpose is required (what this scene does for the story)")
         d = s.get("duration")
-        if not isinstance(d, (int, float)) or not 1.5 <= d <= 30:
-            r.error(where, "duration must be 1.5–30 seconds")
+        if not isinstance(d, (int, float)) or not MIN_SCENE <= d <= 30:
+            r.error(where, f"duration must be {MIN_SCENE}–30 seconds")
             continue
         total += d
         props = s.get("props") or {}
@@ -240,6 +248,10 @@ def validate(tl: dict, ws: Workspace, cfg: dict, claims: dict[str, dict]) -> Rep
         ttype = tr.get("type", "none" if i == 0 else "fade")
         if ttype not in TRANSITIONS:
             r.error(where, f"unknown transition '{ttype}'")
+        if ttype in ("wipe", "push") and tr.get("direction", "right") not in DIRECTIONS:
+            r.error(where, f"transition direction must be one of {', '.join(sorted(DIRECTIONS))}")
+        if ttype == "dip" and tr.get("color", "black") not in DIP_COLOURS:
+            r.error(where, "a dip goes through black or white")
         tdur = float(tr.get("duration", 0.5))
         if i > 0 and ttype not in ("none", "cut"):
             prev = scenes[i - 1].get("duration") or 0
@@ -271,11 +283,18 @@ def validate(tl: dict, ws: Workspace, cfg: dict, claims: dict[str, dict]) -> Rep
     lo, hi = cfg["duration"]["min"], cfg["duration"]["max"]
     if not voice_on and any(s.get("sfx") for s in scenes) and not cfg["audio"]["soundEffects"]:
         r.warn("timeline", "authored sfx are ignored: the audio mode is 'silent'")
-    if not lo <= total <= hi:
+    bd_path = ws.reference_dir / "breakdown.json"
+    if ref_mode:
+        if not bd_path.exists():
+            r.error("timeline", "reference mode, but the reference has not been measured (run `promo watch`)")
+        else:
+            r.extend(direction.structure_check(tl, read_json(bd_path), cfg))  # runtime is the reference's
+    elif not lo <= total <= hi:
         r.error("timeline", f"total runtime {total:.1f}s is outside the configured {lo}–{hi}s")
     lines = sum(1 for s in scenes if s.get("narration"))
-    if voice_on and narr.get("enabled", True) and lines < 3:
-        r.error("timeline.narration", f"narration is enabled but only {lines} scene(s) have a line")
+    need = min(3, max(1, round(total / 10)))
+    if voice_on and narr.get("enabled", True) and lines < need:
+        r.error("timeline.narration", f"narration is enabled but only {lines} scene(s) have a line (need {need})")
     if not voice_on and lines:
         r.warn("timeline.narration", f"{lines} narration line(s) are ignored: the audio mode is "
                f"'{audio_mode(cfg)}' (no voice-over)")
@@ -323,6 +342,7 @@ def compile_timeline(ws: Workspace) -> tuple[dict, Report]:
         return {}, rep
 
     fps = int(cfg["format"]["fps"])
+    ref_run = mode(cfg) == "reference"
     scenes_out, cues, narration = [], [], []
     start = 0.0
     for i, s in enumerate(tl["scenes"]):
@@ -336,10 +356,16 @@ def compile_timeline(ws: Workspace) -> tuple[dict, Report]:
         tr = s.get("transition") or {}
         ttype = tr.get("type", "none" if i == 0 else "fade")
         tframes = 0 if ttype in ("none", "cut") or i == 0 else round(float(tr.get("duration", 0.5)) * fps)
+        tr_out = {"type": ttype if i else "none", "frames": tframes}
+        if ttype in ("wipe", "push"):
+            tr_out["direction"] = tr.get("direction", "right")
+        if ttype == "dip":
+            tr_out["color"] = tr.get("color", "black")
         scenes_out.append({
             "id": s["id"], "kind": s["kind"], "purpose": s["purpose"], "source": s.get("source"),
+            "ref": s.get("ref"), "deviation": s.get("deviation"),
             "from": round(start * fps), "durationInFrames": round(d * fps),
-            "transition": {"type": ttype if i else "none", "frames": tframes},
+            "transition": tr_out,
             "props": props, "claims": s.get("claims", []),
         })
         if i > 0:
@@ -390,6 +416,8 @@ def compile_timeline(ws: Workspace) -> tuple[dict, Report]:
     }
     write_json(ws.render_config, rc)
     ws.storyboard.write_text(storyboard_md(rc, cues))
+    if not ref_run:
+        direction.write_autonomous(ws, rc)  # Mode B's CREATIVE_DIRECTION.md is authored, never overwritten
     ws.narration.write_text("".join(f"[{fmt_time(n['at'])}] {n['text']}\n" for n in narration)
                             or f"(no narration: {rc['narration']['reason']})\n")
     return rc, rep
@@ -424,13 +452,23 @@ def _visual(scene: dict) -> str:
     return k
 
 
+def _tr(t: dict) -> str:
+    return t["type"] + (f" {t['direction']}" if t.get("direction") else "") + (f" {t['color']}" if t.get("color") else "")
+
+
+def _ref(s: dict) -> str:
+    refs = s.get("ref")
+    out = "+".join(refs) if isinstance(refs, list) else (refs or "—")
+    return out + (f" (deviation: {s['deviation']})" if s.get("deviation") else "")
+
+
 def storyboard_md(rc: dict, cues: list[dict]) -> str:
     fps = rc["fps"]
     lines = [f"# Storyboard — {rc['product']}", "",
              f"Generated from timeline.json by `promo compile`. {rc['duration']:.1f}s · {fps} fps · "
              f"source: {rc['source']} · style: {rc['style']['preset']} · seed {rc['seed']}", "",
-             "| # | Time | Scene | Primitive | Purpose | Visual | In | Narration | Sound | Claims |",
-             "|---|---|---|---|---|---|---|---|---|---|"]
+             "| # | Time | Scene | Primitive | Purpose | Visual | In | Narration | Sound | Claims | Reference |",
+             "|---|---|---|---|---|---|---|---|---|---|---|"]
     by_scene: dict[str, list[str]] = {}
     for c in cues:
         by_scene.setdefault(c["scene"], []).append(c["fx"])
@@ -441,8 +479,8 @@ def storyboard_md(rc: dict, cues: list[dict]) -> str:
         fx = by_scene.get(s["id"], [])
         fx_s = ", ".join(sorted(set(fx), key=fx.index)) if fx else "—"
         lines.append(f"| {i} | {fmt_time(a)}–{fmt_time(b)} | {s['id']} | {s['kind']} | {s['purpose']} | "
-                     f"{_visual(s)} | {s['transition']['type']} | {narr.get(s['id'], '—')} | {fx_s} | "
-                     f"{', '.join(s['claims']) or '—'} |")
+                     f"{_visual(s)} | {_tr(s['transition'])} | {narr.get(s['id'], '—')} | {fx_s} | "
+                     f"{', '.join(s['claims']) or '—'} | {_ref(s)} |")
     pol = rc.get("audioPolicy") or {"mode": "voiceover"}
     lines += ["", {"voiceover": "Audio: voice-over + sound effects. Background music: none.",
                    "effects": "Audio: sound effects only, no narration. Background music: none.",

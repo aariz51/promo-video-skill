@@ -79,10 +79,46 @@ def scaffold(ws: Workspace, *, force: bool = False) -> Path:
     claims = parse_claims(ws.brief.read_text())
     name = cfg["product"]["name"] or "the product"
     lo, hi = cfg["duration"]["min"], cfg["duration"]["max"]
-    use_inspiration = ws.inspiration.exists() and mode(cfg) == "reference"
+    use_reference = mode(cfg) == "reference" and ws.direction.exists()
+    use_inspiration = not use_reference and ws.inspiration.exists() and mode(cfg) == "reference"
+    if mode(cfg) == "reference" and not (use_reference or use_inspiration):
+        raise PromoError("write CREATIVE_DIRECTION.md first (`promo direction`), so the prompt follows the reference")
 
     lines = ["# PRODUCT-SPECIFIC PROMO PROMPT", ""]
-    if use_inspiration:
+    if use_reference:
+        from . import direction
+        bd = direction.load_breakdown(ws)
+        runtime = direction.target_runtime(bd, cfg)
+        k = runtime / bd["metadata"]["duration"]
+        rules = direction.parse_rules(ws.direction.read_text())
+        ms = bd["motionSpec"]
+        lines += [f"Source of creative structure: CREATIVE_DIRECTION.md (reference {reference_source(cfg)}, measured)",
+                  f"Product: {name}",
+                  f"Target runtime: {runtime:.1f} s (reference {bd['metadata']['duration']:.1f} s, ×{k:.2f})",
+                  "", "## CORE MESSAGE", "", "TODO: one sentence, then the three carrying ideas, from the brief.",
+                  "", "## CREATIVE DNA", ""]
+        lines += [f"- {r['id']} — {r['text']}  → for {name}: TODO" for r in rules]
+        lines += ["", "## PACING PLAN", "",
+                  f"Reference: {ms['sceneCount']} scenes, average {ms['averageScene']} s, "
+                  f"{ms['boundariesPerMinute']} boundaries/min, hard cuts {ms['hardCutShare']}. "
+                  "The timeline keeps this structure (`promo storyboard`).", ""]
+        lines += [f"- {_fmt(q['from'] * k)}–{_fmt(q['to'] * k)}: {q['perMinute']} boundaries/min in the reference"
+                  for q in ms["byQuarter"]]
+        lines += ["- TODO: where the product's hero moment and the holds land in this rhythm.", "",
+                  "## SCENE PLAN", "",
+                  "| # | Time | Beat (source) | Product scene | Primitive | Evidence (claim ids) | Transition in | Sound | Narration |",
+                  "|---|---|---|---|---|---|---|---|---|"]
+        t = 0.0
+        share = direction.spans(bd)
+        in_tr = {x["to"]: x for x in bd["transitions"]}
+        for i, sc in enumerate(bd["scenes"], 1):
+            d = share[sc["id"]] * k
+            tr = in_tr.get(sc["id"])
+            tr_s = direction.implementation(tr)["type"] + f" (ref {tr['type']})" if tr else "—"
+            lines.append(f"| {i} | {_fmt(t)}–{_fmt(t + d)} | {sc['id']}: {sc['measured']['camera']} "
+                         f"| TODO | TODO | TODO | {tr_s} | TODO | TODO |")
+            t += d
+    elif use_inspiration:
         md = ws.inspiration.read_text()
         ev = read_json(ws.evidence) if ws.evidence.exists() else {}
         src_dur = float(ev.get("duration") or 0)
@@ -140,9 +176,9 @@ def scaffold(ws: Workspace, *, force: bool = False) -> Path:
               "", "## SOUND DESIGN", "", "No background music. TODO: layers and where they fire.",
               "", "## NARRATION", "", "TODO: one sparse line per beat, and one sentence of voice direction.",
               "", "## ORIGINALITY", "",
-              ("Structure, pacing and technique are taken from the inspiration; subject, visuals, UI, claims and "
+              ("Structure, pacing and technique are taken from the reference; subject, visuals, UI, claims and "
                "words are the product's own. TODO: list what was kept and what was replaced."
-               if use_inspiration else
+               if use_inspiration or use_reference else
                "The film is built from the master framework and the product's own material. TODO: confirm."),
               "", "## FACT CHECK", ""]
     lines += [f"- {cid}: {c['text']} — {c['source']}" for cid, c in sorted(claims.items(), key=lambda x: int(x[0][1:]))]

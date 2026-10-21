@@ -369,6 +369,8 @@ class TimelineEngine(unittest.TestCase):
         self.assertIn("outside the configured", self._errors(lambda tl: [tl["scenes"][i].update(duration=30) for i in (2, 3, 4)]))
         self.assertIn("narration needs", self._errors(lambda tl: tl["scenes"][1].update(narration="one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen")))
         self.assertIn("disabled without a reason", self._errors(lambda tl: tl.update(narration={"enabled": False})))
+        sparse = lambda tl: [s.pop("narration", None) for s in tl["scenes"][1:]]  # noqa: E731 - one line in ~64 s
+        self.assertIn("only 1 scene(s) have a line (need 3)", self._errors(sparse))
         self.assertIn("terminal content needs", self._errors(lambda tl: tl["scenes"].__setitem__(4, {
             "id": "term", "kind": "terminal", "duration": 3, "purpose": "demo",
             "props": {"lines": [{"type": "cmd", "text": "x" * 60}] * 4}})))

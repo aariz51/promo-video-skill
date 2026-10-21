@@ -226,8 +226,8 @@ def run_qa(ws: Workspace, videos: dict[str, Path], quality: str = "final") -> Re
         f["file"] = _rel(f["file"], ws.root)
         facts["videos"][aspect] = f
     for s in rc["scenes"]:
-        if s["durationInFrames"] < 1.5 * rc["fps"]:
-            rep.error("timeline", f"scene {s['id']} is shorter than 1.5s")
+        if s["durationInFrames"] < 0.5 * rc["fps"]:
+            rep.error("timeline", f"scene {s['id']} is shorter than 0.5s")
     if sum(s["durationInFrames"] for s in rc["scenes"]) != rc["durationInFrames"]:
         rep.error("timeline", "scene durations do not add up to the film's length")
     vo_path = ws.vo_dir / "manifest.json"
@@ -256,7 +256,7 @@ def run_qa(ws: Workspace, videos: dict[str, Path], quality: str = "final") -> Re
 CHECKS = [  # id, the Issue.where values that belong to it, what it verifies
     ("render", ("render",), "every requested file exists and is non-empty"),
     ("encoding", None, "resolution, frame rate, duration, decode, black and frozen stretches, audio stream per mode"),
-    ("timeline", ("timeline",), "scene timing adds up; no scene under 1.5 s"),
+    ("timeline", ("timeline",), "scene timing adds up; no scene under 0.5 s"),
     ("narration", ("narration",), "voice lines match the plan and the audio mode, sit in their scenes, never overlap"),
     ("audio", ("audio",), "mix sources match the audio mode; no music; silence between cues"),
 ]
@@ -294,7 +294,7 @@ def report_md(rep: Report, facts: dict, rc: dict) -> str:
              "(or verified digital silence) for silent",
              "- Resolution, frame rate and duration match render-config.json",
              "- Full decode pass without errors; no black stretch over 1 s; frozen stretches reported",
-             "- Scene timing adds up; no scene under 1.5 s",
+             "- Scene timing adds up; no scene under 0.5 s",
              "- Narration: every line rendered, inside its scene, no overlaps",
              "- Audio present; mix contains only library effects, voice and (optional) non-melodic ambience",
              "- Near-silence wherever no cue or line is sounding, in the master and in each encoded file: "

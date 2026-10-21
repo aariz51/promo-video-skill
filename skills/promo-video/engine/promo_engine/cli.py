@@ -17,8 +17,8 @@ import shutil
 import sys
 from pathlib import Path
 
-from . import adapter, analyzer, artifacts, audio, capture, providers, qa, questions, reference_input, render, \
-    timeline, voiceover, watcher
+from . import adapter, analyzer, artifacts, audio, capture, direction, providers, qa, questions, reference_input, \
+    render, timeline, voiceover, watcher
 from .config import AUDIO_MODES, ASPECTS, PROVIDER_KEYS, Workspace, audio_mode, init_workspace, mode, \
     reference_source
 from .util import RENDERER_DIR, PromoError, Report, free_gb, read_json, write_json
@@ -158,7 +158,12 @@ def cmd_check(args) -> int:
     what = args.what
     cfg = ws.config()
     uses_insp = mode(cfg) == "reference"
-    if what in ("inspiration", "all") and (what == "inspiration" or uses_insp):
+    if what == "direction" or (what == "all" and uses_insp and not ws.inspiration.exists()):
+        if not ws.direction.exists():
+            rep.error(ws.direction.name, "missing (run `promo direction`)")
+        else:
+            rep.extend(direction.check(ws.direction.read_text(), direction.load_breakdown(ws), ws.root, _transcript(ws)))
+    if what == "inspiration" or (what == "all" and uses_insp and ws.inspiration.exists()):
         if not ws.inspiration.exists():
             rep.error(ws.inspiration.name, "missing")
         else:
@@ -176,7 +181,8 @@ def cmd_check(args) -> int:
             rep.error(ws.creative.name, "missing (run `promo adapt`)")
         else:
             claims = artifacts.parse_claims(ws.brief.read_text()) if ws.brief.exists() else {}
-            rules = artifacts.parse_rules(ws.inspiration.read_text()) if uses_insp and ws.inspiration.exists() else []
+            rules = (direction.parse_rules(ws.direction.read_text()) if uses_insp and ws.direction.exists() else
+                     artifacts.parse_rules(ws.inspiration.read_text()) if uses_insp and ws.inspiration.exists() else [])
             rep.extend(artifacts.check_creative(ws.creative.read_text(), claims=claims,
                                                 source="inspiration" if uses_insp else "framework",
                                                 rules=rules, transcript=_transcript(ws)))
@@ -194,6 +200,31 @@ def cmd_check(args) -> int:
                 if copied:
                     rep.error("timeline", "narration reuses inspiration wording: " + "; ".join(copied[:3]))
     return _print_report(rep, f"{what}: ok")
+
+
+def cmd_direction(args) -> int:
+    ws = _ws(args)
+    if mode(ws.config()) != "reference":
+        raise PromoError("CREATIVE_DIRECTION.md is scaffolded from a reference; this run is autonomous",
+                         hint="in autonomous mode `promo compile` writes it from creative-prompt.md")
+    path = direction.scaffold(ws, force=args.force)
+    print(f"Wrote {path}. Read every frame and contact sheet in reference/, replace every TODO, "
+          "then `promo check direction`.")
+    return 0
+
+
+def cmd_storyboard(args) -> int:
+    ws = _ws(args)
+    if mode(ws.config()) != "reference":
+        raise PromoError("`promo storyboard` derives the timeline from a reference; this run is autonomous",
+                         hint="write timeline.json from creative-prompt.md (docs/timeline.md)")
+    path = direction.storyboard(ws, force=args.force)
+    tl = read_json(path)
+    print(f"Wrote {path}: {len(tl['scenes'])} scenes · {sum(s['duration'] for s in tl['scenes']):.1f}s · "
+          f"transitions {', '.join(s.get('transition', {}).get('type', '—') for s in tl['scenes'][1:])}")
+    print("Fill kind, purpose, props (and narration) for each scene from the brief; keep ref, duration and "
+          "transition, or add a `deviation` saying why. Then `promo check timeline`.")
+    return 0
 
 
 def cmd_adapt(args) -> int:
@@ -329,7 +360,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--detail", default="balanced", choices=["efficient", "balanced", "token-burner"])
     p.add_argument("--refresh", action="store_true", help="download and measure again instead of reusing")
     p = sub.add_parser("check", help="validate an artifact")
-    p.add_argument("what", choices=["inspiration", "brief", "creative", "timeline", "all"])
+    p.add_argument("what", choices=["direction", "inspiration", "brief", "creative", "timeline", "all"])
+    p = sub.add_parser("direction", help="Mode B: scaffold CREATIVE_DIRECTION.md from the measured reference")
+    p.add_argument("--force", action="store_true")
+    p = sub.add_parser("storyboard", help="Mode B: timeline.json skeleton with the reference's structure")
+    p.add_argument("--force", action="store_true")
     p = sub.add_parser("adapt", help="scaffold creative-prompt.md from the source + brief")
     p.add_argument("--force", action="store_true")
     sub.add_parser("compile", help="timeline.json → render-config.json, storyboard.md, narration.txt")
@@ -352,6 +387,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 COMMANDS = {"doctor": cmd_doctor, "init": cmd_init, "questions": cmd_questions, "status": cmd_status, "scan": cmd_scan,
             "capture": cmd_capture, "watch": cmd_watch, "check": cmd_check, "adapt": cmd_adapt,
+            "direction": cmd_direction, "storyboard": cmd_storyboard,
             "compile": cmd_compile, "voice": cmd_voice, "audio": cmd_audio, "render": cmd_render,
             "qa": cmd_qa, "build": cmd_build, "stills": cmd_stills}
 
