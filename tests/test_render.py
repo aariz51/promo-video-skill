@@ -393,3 +393,33 @@ class StoreFormats(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+@unittest.skipUnless(os.environ.get("PROMO_MOBILE") == "1" and shutil.which("flutter") and shutil.which("xcrun")
+                     and helpers.has_ffmpeg(), "set PROMO_MOBILE=1 (needs Flutter, Xcode simulators and ffmpeg; ~2 min)")
+class RealSimulator(unittest.TestCase):
+    """DISC-8: a real Flutter iOS app, built and launched on promo's own simulator, every
+    route reached and captured, the simulator removed afterwards."""
+
+    def test_real_app_screens_are_captured(self):
+        tmp = Path(tempfile.mkdtemp(prefix="promo-sim-"))
+        self.addCleanup(shutil.rmtree, tmp, True)
+        root = helpers.make_flutter_product(tmp / "tallyboard")
+        ws = Workspace.at(root / "promo")
+        assert main(["-w", str(ws.root), "init", "--product", str(root), "--name", "Tallyboard"]) == 0
+        assert main(["-w", str(ws.root), "discover"]) == 0
+        m = read_json(ws.screenshot_manifest)
+        self.assertEqual(m["mobile"]["status"], "captured", m["mobile"])
+        shots = {s["id"]: s for s in m["screenshots"] if s["platform"] == "ios"}
+        self.assertEqual(set(shots), {"ios-launch", "ios-history", "ios-result"})
+        for s in shots.values():
+            self.assertEqual((s["width"], s["height"]), (1206, 2622))
+            self.assertTrue(s["approved"], s["reason"])
+        structures = [reference._z(reference._luma(reference._frame_at(ws.root / s["path"], 0, 64, 36))) for s in shots.values()]
+        for i in range(len(structures)):
+            for j in range(i + 1, len(structures)):
+                self.assertGreater(reference._mad(structures[i], structures[j]), 0.10, "three distinct real screens")
+        agree = {c["role"]: c["agrees"] for c in read_json(ws.theme)["original"]["corroboration"]}
+        self.assertEqual(agree, {"background": True, "primary": True})
+        sims = subprocess.run(["xcrun", "simctl", "list", "devices"], capture_output=True, text=True).stdout
+        self.assertNotIn("PromoVideo Capture", sims, "promo removes the simulator it created")

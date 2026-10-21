@@ -272,6 +272,7 @@ class FakeDevices:
 
     def __init__(self, tmp: Path, *, ios=True, adb_devices="", emulator=None, fail=None, own=False):
         self.tmp, self.calls, self.fail = tmp, [], fail
+        self.route, self.same_screen = "/", False
         self.ios, self.adb_devices, self.emulator = ios, adb_devices, emulator
         self.sims = json.loads(json.dumps(SIMS))
         if own:
@@ -303,8 +304,14 @@ class FakeDevices:
             return ok("com.example.tallyboard\n")
         if c.startswith("xcrun simctl launch") and self.fail == "launch":
             return bad("Unable to launch com.example.tallyboard")
+        if c.startswith("xcrun simctl launch"):
+            arg = next((a for a in cmd if str(a).startswith("--route=")), "--route=/")
+            self.route = arg.split("=", 1)[1]
+            return ok("com.example.tallyboard: 4242\n")
         if c.startswith("xcrun simctl io"):
-            png(Path(cmd[-1]), 1179, 2556, (32, 120, 96))
+            # Each screen has its own layout (band height), unless the app ignores navigation.
+            band = {"/": 0.1, "/history": 0.35, "/result": 0.6}.get("/" if self.same_screen else self.route, 0.2)
+            png(Path(cmd[-1]), 1179, 2556, (32, 120, 96), band=band)
             return ok()
         if cmd[0] == "adb" and cmd[1:] == ["devices"]:
             return ok("List of devices attached\n" + self.adb_devices)
@@ -363,8 +370,12 @@ class MobileApp(unittest.TestCase):
         self.assertFalse(any("OTHER-BOOTED" in c for c in flat), "someone else's booted simulator is never touched")
         self.assertIn("xcrun simctl delete PROMO-NEW", flat, "the simulator promo created is deleted")
         self.assertEqual([s["screen"] for s in rep["shots"]], ["launch", "history", "result"])
-        self.assertTrue(any("openurl PROMO-NEW tallyboard://app/history" in c for c in flat))
+        # Routes are reached with Flutter's --route launch argument, never `openurl` (iOS would
+        # show an "Open in …?" confirmation over the previous screen).
+        self.assertTrue(any("launch PROMO-NEW com.example.tallyboard --route=/history" in c for c in flat))
+        self.assertFalse(any("openurl" in c for c in flat))
         self.assertEqual(rep["launch"]["bundleId"], "com.example.tallyboard")
+        self.assertTrue(all("reached by launch argument" in s["finding"] for s in rep["screens"][1:]))
 
     def test_promos_own_simulator_is_reused_and_kept(self):
         dev = FakeDevices(self.tmp, own=True)
@@ -378,10 +389,11 @@ class MobileApp(unittest.TestCase):
         dev = FakeDevices(self.tmp, ios=False, emulator=None)
         rep = mobile.inspect_mobile(self.ws, product_root=self.root, platforms=mobile.detect_platforms(self.root), run=dev)
         self.assertEqual((rep["status"], rep["stage"], rep["launch"]), ("blocked", "device discovery", None))
-        self.assertIn("Android emulator is not installed", rep["limitations"][0])
+        self.assertIn("iOS: no iOS Simulator", " ".join(rep["limitations"]), "every platform tried says why it failed")
+        self.assertIn("Android: no Android emulator or device: the Android emulator is not installed", " ".join(rep["limitations"]))
         dev = FakeDevices(self.tmp, ios=False, emulator="Pixel_8_API_35\n")
         rep = mobile.inspect_mobile(self.ws, product_root=self.root, platforms=mobile.detect_platforms(self.root), run=dev)
-        self.assertIn("none is running", rep["limitations"][0])
+        self.assertIn("none is running", " ".join(rep["limitations"]))
 
     def test_build_and_launch_failures_are_reported_at_their_stage(self):
         for step, stage, needle in (("build", "build", "development team"), ("launch", "install/launch", "Unable to launch")):
@@ -392,13 +404,53 @@ class MobileApp(unittest.TestCase):
             self.assertIn(needle, rep["limitations"][0])
             self.assertFalse(rep["shots"])
 
-    def test_without_deep_links_only_the_launch_screen_is_claimed(self):
+    def test_a_route_that_lands_on_the_same_screen_is_not_claimed(self):
+        dev = FakeDevices(self.tmp)
+        dev.same_screen = True
+        rep = mobile.inspect_mobile(self.ws, product_root=self.root, platforms=mobile.detect_platforms(self.root),
+                                    run=dev, settle=0)
+        self.assertEqual([s["screen"] for s in rep["shots"]], ["launch"])
+        self.assertTrue(all("did not navigate" in s["finding"] for s in rep["screens"][1:]), rep["screens"])
+        self.assertFalse((self.ws.captured / "mobile" / "ios-history.png").exists())
+
+    def test_native_ios_custom_scheme_links_are_not_followed_unattended(self):
+        native = self.tmp / "native"
+        (native / "Tally.xcodeproj").mkdir(parents=True)
+        (native / "lib").mkdir()
+        (native / "lib" / "routes.dart").write_text("GoRoute(path: '/history')")
+        (native / "Tally").mkdir()
+        (native / "Tally" / "Info.plist").write_text("<key>CFBundleURLSchemes</key><array><string>tally</string></array>")
+        scheme, routes = mobile.deep_links(native, "ios")
+        self.assertEqual((scheme, routes), ("tally", ["/history"]))
+
+    def test_flutter_routes_need_no_url_scheme(self):
         shutil.rmtree(self.root)
         flutter_app(self.root, deep_links=False)
         rep = mobile.inspect_mobile(self.ws, product_root=self.root, platforms=mobile.detect_platforms(self.root),
                                     run=FakeDevices(self.tmp), settle=0)
+        self.assertEqual([s["screen"] for s in rep["shots"]], ["launch", "history", "result"])
+
+    def test_without_a_way_to_navigate_only_the_launch_screen_is_claimed(self):
+        app = self.tmp / "droid"
+        (app / "app").mkdir(parents=True)
+        (app / "app" / "build.gradle").write_text('plugins { id "com.android.application" }\n'
+                                                   'android { defaultConfig { applicationId "com.example.droid" } }\n')
+        (app / "lib").mkdir()
+        (app / "lib" / "routes.dart").write_text("GoRoute(path: '/history')")
+        ws = Workspace.at(app / "promo")
+        init_workspace(ws, product_root=app, name="Droid")
+        dev = FakeDevices(self.tmp, ios=False, adb_devices="emulator-5554\tdevice\n")
+        orig = dev.__call__
+
+        def run(cmd, **kw):
+            if cmd[:3] == ["adb", "-s", "emulator-5554"] and "screencap" in cmd:
+                p = self.tmp / "droid.png"
+                png(p, 1080, 2400, (32, 120, 96))
+                return subprocess.CompletedProcess(cmd, 0, p.read_bytes(), b"")
+            return orig(cmd, **kw)
+        rep = mobile.inspect_mobile(ws, product_root=app, platforms=mobile.detect_platforms(app), run=run, settle=0)
         self.assertEqual([s["screen"] for s in rep["shots"]], ["launch"])
-        self.assertIn("no URL scheme", " ".join(rep["limitations"]))
+        self.assertIn("no URL scheme is declared", " ".join(rep["limitations"]))
 
     @unittest.skipUnless(has_ffmpeg(), "ffmpeg required")
     def test_mobile_captures_enter_the_manifest_and_theme(self):

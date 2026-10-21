@@ -22,12 +22,12 @@ sys.path.insert(0, str(SKILL / "engine"))
 from promo_engine.config import Workspace, init_workspace  # noqa: E402
 
 
-def png(path: Path, w: int, h: int, rgb=(40, 44, 60)) -> Path:
-    """A solid-colour PNG with a lighter top band (so it is not blank)."""
+def png(path: Path, w: int, h: int, rgb=(40, 44, 60), band: float = 1 / 8) -> Path:
+    """A solid-colour PNG with a lighter top band (so it is not blank); `band` sets its height."""
     path.parent.mkdir(parents=True, exist_ok=True)
     rows = []
     for y in range(h):
-        c = (rgb[0] + 60, rgb[1] + 60, rgb[2] + 80) if y < h // 8 else rgb
+        c = (rgb[0] + 60, rgb[1] + 60, rgb[2] + 80) if y < h * band else rgb
         rows.append(b"\x00" + bytes(c) * w)
     raw = zlib.compress(b"".join(rows), 6)
 
@@ -474,4 +474,85 @@ def make_web_product(root: Path, port: int, *, broken: bool = False) -> Path:
                                         "console.error('Error: Cannot find module \"next\"'); process.exit(1);\n")
     else:
         (root / "server.js").write_text(WEB_SERVER)
+    return root
+
+
+FLUTTER_MAIN = r"""
+import 'package:flutter/material.dart';
+
+const brand = Color(0xFF1F8A70);
+const paper = Color(0xFFF7F5F0);
+const ink = Color(0xFF111418);
+
+final lightTheme = ThemeData(
+  brightness: Brightness.light,
+  colorScheme: ColorScheme.fromSeed(seedColor: brand, primary: brand, surface: Color(0xFFFFFFFF)),
+  scaffoldBackgroundColor: paper,
+  useMaterial3: true,
+);
+final darkTheme = ThemeData(
+  brightness: Brightness.dark,
+  colorScheme: ColorScheme.fromSeed(seedColor: Color(0xFF3FBF9B), brightness: Brightness.dark),
+  scaffoldBackgroundColor: Color(0xFF0F1412),
+  useMaterial3: true,
+);
+
+void main() => runApp(const Tallyboard());
+
+class Tallyboard extends StatelessWidget {
+  const Tallyboard({super.key});
+  @override
+  Widget build(BuildContext context) => MaterialApp(
+        title: 'Tallyboard',
+        debugShowCheckedModeBanner: false,
+        theme: lightTheme,
+        darkTheme: darkTheme,
+        themeMode: ThemeMode.light,
+        routes: {
+          '/': (c) => const Page(title: 'Where did this month go?', body: 'Drop receipts. Tallyboard groups every total.', cta: 'Start a report'),
+          '/history': (c) => const Page(title: 'History', body: 'September · August · July (demo data)', cta: 'Open report'),
+          '/result': (c) => const Page(title: '\$2,418.60 this month', body: 'Travel · Food · Software · Office', cta: 'Export CSV'),
+        },
+      );
+}
+
+class Page extends StatelessWidget {
+  const Page({super.key, required this.title, required this.body, required this.cta});
+  final String title, body, cta;
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(title: const Text('Tallyboard', style: TextStyle(color: brand, fontWeight: FontWeight.w700))),
+        body: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title, style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w700, color: ink)),
+            const SizedBox(height: 12),
+            Text(body, style: const TextStyle(fontSize: 18)),
+            const SizedBox(height: 24),
+            for (final w in [0.9, 0.6, 0.4])
+              Container(margin: const EdgeInsets.symmetric(vertical: 6), height: 14,
+                  width: 300 * w, decoration: BoxDecoration(color: brand, borderRadius: BorderRadius.circular(7))),
+            const SizedBox(height: 24),
+            FilledButton(onPressed: () {}, child: Text(cta)),
+          ]),
+        ),
+      );
+}
+"""
+
+
+def make_flutter_product(root: Path) -> Path:
+    """A real Flutter iOS app (`flutter create`, offline) with a theme, three routes and a
+    `tallyboard://` deep-link scheme, so a simulator run can reach every screen."""
+    root.parent.mkdir(parents=True, exist_ok=True)
+    subprocess.run(["flutter", "create", "--org", "com.example", "--project-name", "tallyboard", "--platforms", "ios",
+                    "--offline", root.name], cwd=root.parent, check=True, capture_output=True)
+    (root / "lib" / "main.dart").write_text(FLUTTER_MAIN)
+    (root / "README.md").write_text("# Tallyboard\n\nTallyboard turns receipts into a monthly expense report.\n")
+    plist = root / "ios" / "Runner" / "Info.plist"
+    text = plist.read_text()
+    extra = ("\t<key>FlutterDeepLinkingEnabled</key>\n\t<true/>\n\t<key>CFBundleURLTypes</key>\n\t<array>\n\t\t<dict>\n"
+             "\t\t\t<key>CFBundleURLSchemes</key>\n\t\t\t<array>\n\t\t\t\t<string>tallyboard</string>\n\t\t\t</array>\n"
+             "\t\t</dict>\n\t</array>\n")
+    plist.write_text(text.replace("<dict>\n", "<dict>\n" + extra, 1))
     return root

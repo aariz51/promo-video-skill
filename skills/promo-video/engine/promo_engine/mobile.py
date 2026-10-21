@@ -107,14 +107,20 @@ def own_simulator(run: Run, devices: list[dict]) -> tuple[dict | None, bool, str
     mine = next((d for d in devices if d["name"] == SIM_NAME), None)
     if mine:
         return mine, False, None
-    types = run(["xcrun", "simctl", "list", "devicetypes", "-j"], timeout=60)
     runtimes = run(["xcrun", "simctl", "list", "runtimes", "available", "-j"], timeout=60)
     try:
-        dtype = next(t["identifier"] for t in reversed(json.loads(types.stdout)["devicetypes"])
-                     if re.match(r"iPhone \d+( Pro)?$", t["name"]))
-        rt = [r for r in json.loads(runtimes.stdout)["runtimes"] if r.get("platform", "iOS") == "iOS"
-              and r.get("isAvailable", True)][-1]["identifier"]
-    except (json.JSONDecodeError, StopIteration, IndexError, KeyError, TypeError):
+        ios = [r for r in json.loads(runtimes.stdout)["runtimes"]
+               if r.get("platform", "iOS") == "iOS" and r.get("isAvailable", True)]
+        rt = ios[-1]
+        # Only a device type the runtime supports can be created; prefer the newest plain iPhone.
+        phones = [(t.get("name", ""), t["identifier"]) for t in rt.get("supportedDeviceTypes", [])
+                  if re.fullmatch(r"iPhone \d+( Pro)?", t.get("name", ""))]
+        if not phones:
+            types = json.loads(run(["xcrun", "simctl", "list", "devicetypes", "-j"], timeout=60).stdout)["devicetypes"]
+            phones = [(t["name"], t["identifier"]) for t in types if re.fullmatch(r"iPhone \d+( Pro)?", t["name"])]
+        dtype = max(phones, key=lambda p: (int(re.search(r"\d+", p[0]).group(0)), "Pro" not in p[0]))[1]
+        rt = rt["identifier"]
+    except (json.JSONDecodeError, IndexError, KeyError, TypeError, ValueError, AttributeError):
         return None, False, "could not find an iPhone device type and iOS runtime to create a capture simulator"
     made = run(["xcrun", "simctl", "create", SIM_NAME, dtype, rt], timeout=120)
     if made.returncode != 0:
@@ -160,6 +166,38 @@ def android_app_id(root: Path) -> str | None:
     return None
 
 
+def _structure(path: Path):
+    from .reference import _frame_at, _luma, _z
+    raw = _frame_at(path, 0, 64, 36)
+    return _z(_luma(raw)) if raw else None
+
+
+def _differ(a, b) -> float:
+    from .reference import _mad
+    return _mad(a, b) if a and b else 1.0
+
+
+def stable_capture(capture, dest: Path, *, wait: float, tries: int = 4) -> tuple[bool, str | None]:
+    """Capture until two shots taken `wait` apart agree: system banners, toasts and entrance
+    animations come and go, the screen itself stays. Returns (ok, problem)."""
+    probe = dest.with_name(dest.stem + ".probe.png")
+    try:
+        for _ in range(tries):
+            if not (capture(probe) and capture_after(capture, dest, wait)):
+                return False, "the screenshot command failed"
+            if _differ(_structure(probe), _structure(dest)) < 0.06:
+                return (True, None) if _shot_ok(dest) else (False, "blank screen")
+            time.sleep(wait)
+        return False, "the screen kept changing (a notification or an animation that never settled)"
+    finally:
+        probe.unlink(missing_ok=True)
+
+
+def capture_after(capture, dest: Path, wait: float) -> bool:
+    time.sleep(wait)
+    return capture(dest)
+
+
 def _shot_ok(path: Path) -> bool:
     from .reference import _frame_at, _luma, detail
     raw = _frame_at(path, 0, 64, 36)
@@ -181,6 +219,7 @@ def inspect_mobile(ws: Workspace, *, product_root: Path, platforms: list[dict], 
         return report
     report["platform"] = plat["platform"]
     want_ios = plat["platform"] == "ios" or (plat["platform"] == "flutter" and "ios" in plat.get("targets", ["ios"]))
+    want_android = plat["platform"] == "android" or (plat["platform"] == "flutter" and "android" in plat.get("targets", ["android"]))
     created = False
     device = None
     if want_ios:
@@ -188,18 +227,18 @@ def inspect_mobile(ws: Workspace, *, product_root: Path, platforms: list[dict], 
         report["devicesSeen"] += [f"{d['name']} ({d['state']})" for d in devs]
         if devs:
             device, created, why = own_simulator(run, devs)
-        if not device and plat["platform"] == "ios":
-            report.update(status="blocked", stage="device discovery")
-            report["limitations"].append(why or "no iOS simulator available")
-            return report
-    if device is None:
+        if not device:
+            report["limitations"].append(f"iOS: {why or 'no iOS simulator available'}")
+    if device is None and want_android:
         devs, why = android_devices(run)
         report["devicesSeen"] += [d["name"] for d in devs]
-        if not devs:
-            report.update(status="blocked", stage="device discovery")
-            report["limitations"].append(why)
-            return report
-        device = devs[0]
+        if devs:
+            device = devs[0]
+        else:
+            report["limitations"].append(f"Android: {why}")
+    if device is None:
+        report.update(status="blocked", stage="device discovery")
+        return report
     report["device"] = {k: device[k] for k in ("id", "name", "platform", "kind")} | {"createdByPromo": created}
     try:
         return _launch_and_capture(ws, product_root, plat, device, run, report, settle)
@@ -252,6 +291,11 @@ def _launch_and_capture(ws, root, plat, device, run, report, settle) -> dict:
             return report
         bid = bundle_id(app, run)
         inst = run(["xcrun", "simctl", "install", udid, str(app)], timeout=300)
+        if bid and inst.returncode == 0:
+            # Warm-up: a freshly booted simulator shows first-boot banners; let them pass.
+            run(["xcrun", "simctl", "launch", udid, bid], timeout=120)
+            time.sleep(settle * 3)
+            run(["xcrun", "simctl", "terminate", udid, bid], timeout=60)
         launch = run(["xcrun", "simctl", "launch", udid, bid or ""], timeout=120) if bid else None
         if inst.returncode != 0 or not launch or launch.returncode != 0:
             report.update(status="blocked", stage="install/launch")
@@ -263,8 +307,7 @@ def _launch_and_capture(ws, root, plat, device, run, report, settle) -> dict:
         def capture(dest: Path) -> bool:
             return run(["xcrun", "simctl", "io", udid, "screenshot", str(dest)], timeout=60).returncode == 0
 
-        def open_route(url: str) -> bool:
-            return run(["xcrun", "simctl", "openurl", udid, url], timeout=60).returncode == 0
+        open_route = None  # iOS custom-scheme links need a person to confirm; never used unattended
     else:
         gradle_dir = root / "android" if (root / "android" / "gradlew").exists() else root
         build = run(["./gradlew", "installDebug"], cwd=gradle_dir, timeout=2400)
@@ -295,28 +338,60 @@ def _launch_and_capture(ws, root, plat, device, run, report, settle) -> dict:
 
     time.sleep(settle)
     first = out_dir / f"{device['platform']}-launch.png"
-    if capture(first) and _shot_ok(first):
+    ok, problem = stable_capture(capture, first, wait=max(settle / 2, 0.01))
+    taken: list[tuple[str, object]] = []
+    if ok:
         report["shots"].append({"path": first, "screen": "launch", "route": "/"})
         report["screens"].append({"screen": "launch", "route": "/", "finding": "renders"})
+        taken.append(("launch", _structure(first)))
     else:
-        report["screens"].append({"screen": "launch", "route": "/", "finding": "blank or not captured"})
+        report["screens"].append({"screen": "launch", "route": "/", "finding": problem})
     scheme, routes = deep_links(root, device["platform"])
-    if routes and not scheme:
-        report["limitations"].append(f"the app declares {len(routes)} route(s) but no URL scheme, so only the first "
-                                     "screen could be reached; supply screenshots of the others")
-    for r in routes[:6] if scheme else []:
-        dest = out_dir / f"{device['platform']}-{re.sub(r'[^a-z0-9]+', '-', r.lower()).strip('-')}.png"
-        if not open_route(f"{scheme}://app{r}"):
-            report["screens"].append({"screen": r, "route": r, "finding": "deep link failed"})
+    # How to reach a route without a person tapping: Flutter reads an initial route from its
+    # launch arguments; Android opens deep links directly. iOS custom-scheme links raise a
+    # system "Open in …?" confirmation, so they cannot be followed unattended.
+    if plat["platform"] == "flutter" and device["platform"] == "ios":
+        how = "launch argument --route"
+    elif device["platform"] == "android" and scheme:
+        how = "deep link"
+    else:
+        how = None
+        if routes:
+            report["limitations"].append(
+                f"the app declares {len(routes)} route(s), but they cannot be reached unattended here "
+                + ("(iOS asks the user to confirm custom-scheme links)" if device["platform"] == "ios" and scheme
+                   else "(no URL scheme is declared)") + "; only the launch screen was captured. Supply the others "
+                "with `promo discover --supplied`, or add a UI test that navigates.")
+    for r in routes[:6] if how else []:
+        name = re.sub(r"[^a-z0-9]+", "-", r.lower()).strip("-")
+        dest = out_dir / f"{device['platform']}-{name}.png"
+        if how == "launch argument --route":
+            run(["xcrun", "simctl", "terminate", udid, report["launch"]["bundleId"]], timeout=60)
+            nav = run(["xcrun", "simctl", "launch", udid, report["launch"]["bundleId"], f"--route={r}"], timeout=120)
+            moved = nav.returncode == 0
+        else:
+            moved = open_route(f"{scheme}://app{r}")
+        if not moved:
+            report["screens"].append({"screen": r, "route": r, "finding": "navigation failed"})
             continue
         time.sleep(settle)
-        if capture(dest) and _shot_ok(dest):
-            report["shots"].append({"path": dest, "screen": r.strip("/"), "route": r})
-            report["screens"].append({"screen": r, "route": r, "finding": "renders"})
-        else:
-            report["screens"].append({"screen": r, "route": r, "finding": "blank or not captured"})
+        ok, problem = stable_capture(capture, dest, wait=max(settle / 2, 0.01))
+        if not ok:
+            report["screens"].append({"screen": r, "route": r, "finding": problem})
+            continue
+        # A capture that matches one already taken did not reach a new screen; it is never
+        # reported as one.
+        st = _structure(dest)
+        same = next((n for n, other in taken if _differ(st, other) < 0.10), None)
+        if same:
+            dest.unlink(missing_ok=True)
+            report["screens"].append({"screen": r, "route": r, "finding": f"did not navigate (same screen as {same})"})
+            continue
+        taken.append((r, st))
+        report["shots"].append({"path": dest, "screen": r.strip("/"), "route": r})
+        report["screens"].append({"screen": r, "route": r, "finding": f"renders (reached by {how})"})
     if not scheme and not routes:
-        report["limitations"].append("no deep links declared: only the launch screen was captured automatically")
+        report["limitations"].append("no routes declared: only the launch screen was captured automatically")
     report["status"] = "captured" if report["shots"] else "blocked"
     if not report["shots"]:
         report["stage"] = "capture"
