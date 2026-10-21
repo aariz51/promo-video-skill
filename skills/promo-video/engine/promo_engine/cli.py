@@ -17,8 +17,8 @@ import shutil
 import sys
 from pathlib import Path
 
-from . import adapter, analyzer, artifacts, audio, capture, direction, providers, qa, questions, reference_input, \
-    render, timeline, voiceover, watcher
+from . import adapter, analyzer, artifacts, audio, capture, deliver, direction, providers, qa, questions, \
+    reference_input, render, timeline, voiceover, watcher
 from .config import AUDIO_MODES, ASPECTS, PROVIDER_KEYS, Workspace, audio_mode, init_workspace, mode, \
     reference_source
 from .util import RENDERER_DIR, PromoError, Report, free_gb, read_json, write_json
@@ -312,6 +312,15 @@ def cmd_build(args) -> int:
     return 0
 
 
+def cmd_deliver(args) -> int:
+    ws = _ws(args)
+    m = deliver.deliver(ws, out=Path(args.out) if args.out else None, include_drafts=args.drafts, force=args.force)
+    dest = Path(args.out).resolve() if args.out else ws.root / "deliver"
+    print(f"Delivered to {dest}: {sum(1 for f in m['files'] if f['path'].startswith('videos/'))} film(s), "
+          f"QA {m['qa']}, editable project in remotion/")
+    return 0
+
+
 def cmd_status(args) -> int:
     ws = _ws(args)
     if not ws.config_path.exists():
@@ -377,6 +386,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--aspect", action="append", choices=sorted(ASPECTS))
     p.add_argument("--scene", action="append", help="scene id (repeatable; default all)")
     p.add_argument("--at", type=float, default=0.85, help="position inside each scene, 0–1")
+    p = sub.add_parser("deliver", help="assemble films, direction, reports and an editable Remotion project")
+    p.add_argument("--out", help="destination (default promo/deliver)")
+    p.add_argument("--drafts", action="store_true", help="include draft renders")
+    p.add_argument("--force", action="store_true", help="deliver even though QA did not pass")
     for name in ("render", "qa", "build"):
         p = sub.add_parser(name, help={"render": "render the film", "qa": "verify the rendered film",
                                        "build": "compile → voice → audio → render → qa"}[name])
@@ -389,7 +402,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 COMMANDS = {"doctor": cmd_doctor, "init": cmd_init, "questions": cmd_questions, "status": cmd_status, "scan": cmd_scan,
             "capture": cmd_capture, "watch": cmd_watch, "check": cmd_check, "adapt": cmd_adapt,
-            "direction": cmd_direction, "storyboard": cmd_storyboard,
+            "direction": cmd_direction, "storyboard": cmd_storyboard, "deliver": cmd_deliver,
             "compile": cmd_compile, "voice": cmd_voice, "audio": cmd_audio, "render": cmd_render,
             "qa": cmd_qa, "build": cmd_build, "stills": cmd_stills}
 

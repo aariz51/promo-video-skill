@@ -1,8 +1,13 @@
 # Motion language
 
 How the primitives move, and the rules to keep if you add one. The creative source
-(framework or inspiration prompt) decides *which* motion a film uses; these rules decide
-how it is built.
+(the framework in Mode A, the measured reference in Mode B) decides *which* motion a film
+uses; these rules decide how it is built.
+
+In Mode B the reference's measured motion overrides the defaults below where they conflict:
+its transition types, wipe directions, transition lengths and speed profiles (`easing`) are
+carried into the timeline by `promo storyboard`, and `CREATIVE_DIRECTION.md` records its
+camera vocabulary, pacing and signature devices for the scene props.
 
 ## Principles
 
@@ -16,7 +21,10 @@ how it is built.
   unless stillness is the point (the hook's freeze).
 - **One focal subject per frame.** Negative space is how importance is signalled.
 - **Transitions are ideas.** `light` for act breaks, `push`/`zoom` into detail, `wipe` for
-  typographic changes, `cut` inside fast sections, `fade` as the quiet default.
+  typographic changes, `dip` for a breath between acts, `cut` inside fast sections, `fade`
+  as the quiet default. A transition plays over the incoming scene's first frames.
+- **Every scene paints an opaque ground.** The previous scene is still rendering underneath
+  during a transition; a translucent ground lets it show through.
 - **Idle life is seeded.** `motion.ts` gives `bob`, `sway`, `pulse`, and `seed(i)` for
   deterministic scatter. Never `Math.random`.
 
@@ -47,5 +55,6 @@ what the layer contributes.
 3. Write `renderer/src/scenes/<Name>.tsx`: read `scene.props._t`, size in `useLayout().u`,
    branch on `aspect`, use the shared springs, no randomness.
 4. Register it in `renderer/src/scenes/index.tsx`. `tests/test_pipeline.py` checks the
-   engine and renderer agree.
+   engine and renderer agree; QA's motion check fails a scene that does not animate or
+   shows no content.
 5. Document its props in `docs/timeline.md`.

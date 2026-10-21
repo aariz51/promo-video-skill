@@ -1,5 +1,10 @@
 # Examples
 
+> These two runs were made with v4 of the skill (the YouTube-only "inspiration" path, with a
+> free-text `inspiration-analysis.md`). v5 replaces that with a measured reference breakdown
+> and `CREATIVE_DIRECTION.md`; v4 workspaces still load, and `self-promo/` still builds. The
+> v5 behaviour is exercised end to end by `tests/test_render.py` (`PROMO_RENDER=1`).
+
 Two real runs of `/promo-video` on this repository. Same product and brief, different
 creative source, so the films differ in structure, not just in colour.
 

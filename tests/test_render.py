@@ -152,6 +152,33 @@ class AutonomousFilm(unittest.TestCase):
         self.assertLess(d(mid_f, new, left), d(mid_f, old, left))
         self.assertLess(d(mid_f, old, right), d(mid_f, new, right))
 
+    def test_delivery_is_complete_and_the_project_is_editable(self):
+        """DEL-1: the deliver folder, and an ejected Remotion project that loads this film."""
+        self.assertEqual(main(["-w", str(self.ws.root), "deliver", "--drafts"]), 0)
+        d = self.ws.root / "deliver"
+        m = read_json(d / "manifest.json")
+        paths = {f["path"] for f in m["files"]}
+        for want in ("videos/promo-16x9-draft.mp4", "CREATIVE_DIRECTION.md", "storyboard.md", "timeline.json",
+                     "TEST_REPORT.md", "validation.json", "remotion/"):
+            self.assertIn(want, paths)
+        video = next(f for f in m["files"] if f["path"].startswith("videos/"))
+        import hashlib
+        self.assertEqual(hashlib.sha256((d / video["path"]).read_bytes()).hexdigest(), video["sha256"])
+        proj = d / "remotion"
+        self.assertEqual(read_json(proj / "src" / "sample" / "render-config.json")["durationInFrames"],
+                         self.rc["durationInFrames"])
+        self.assertTrue((proj / "public" / "audio" / "master.wav").is_file())
+        self.assertTrue((proj / "public" / "assets" / "screenshots" / "dashboard.png").is_file())
+        (proj / "node_modules").symlink_to(RENDERER_DIR / "node_modules")  # skip a second npm ci
+        tsc = subprocess.run(["npx", "tsc", "--noEmit"], cwd=proj, capture_output=True, text=True)
+        self.assertEqual(tsc.returncode, 0, tsc.stdout + tsc.stderr)
+        comps = subprocess.run(["npx", "remotion", "compositions", "src/index.ts"], cwd=proj,
+                               capture_output=True, text=True)
+        self.assertEqual(comps.returncode, 0, comps.stderr[-2000:])
+        for cid in ("Promo16x9", "Promo9x16", "Promo1x1", "PromoStorePortrait", "PromoStoreLandscape"):
+            self.assertIn(cid, comps.stdout)
+        self.assertIn(str(self.rc["durationInFrames"]), comps.stdout, "the film's own length is the default")
+
     def test_rendering_is_deterministic(self):
         again = self.tmp / "again.mp4"
         cmd = ["npx", "remotion", "render", "src/index.ts", "Promo16x9", str(again),

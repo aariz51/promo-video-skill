@@ -40,25 +40,38 @@ class CommandDiscovery(unittest.TestCase):
         self.assertEqual(fm["user-invocable"], "true")
         self.assertEqual(SKILL.name, fm["name"], "skill folder must match its name for discovery")
 
-    def test_skill_asks_the_inspiration_question_first(self):
+    def test_skill_asks_the_reference_question_first_and_never_asks_for_a_mode(self):
+        from promo_engine import questions
         md = (SKILL / "SKILL.md").read_text()
-        self.assertIn("Do you have a YouTube video you want to use as visual inspiration?", md)
-        first_q = md.index("Do you have a YouTube video")
-        self.assertLess(first_q, md.index("## Step 2"), "the inspiration question comes before the work")
+        flat = " ".join(md.split())
+        ref_q = flat.index("Do you have a promotional video you want to use as inspiration?")
+        audio_q = flat.index("Would you like AI voice-over and professional sound effects?")
+        self.assertLess(ref_q, audio_q)
+        self.assertLess(md.index("Do you have a promotional video"), md.index("## Step 2"))
+        # The skill and the engine ask the same questions, word for word.
+        self.assertIn(" ".join(questions.REFERENCE_Q.split()), flat)
+        self.assertIn(" ".join(questions.AUDIO_Q.split()), flat)
+        for opt in ("A. Voice-over plus professional sound effects", "B. Professional sound effects only",
+                    "C. Completely silent"):
+            self.assertIn(opt, md)
+        self.assertIsNone(re.search(r"(choose|pick|select)[^.\n]{0,40}\bmode\b", md, re.I),
+                          "the mode follows from the input; it is never a question")
 
-    def test_skill_names_both_paths_and_every_artifact(self):
+    def test_skill_names_both_modes_and_every_artifact(self):
         md = (SKILL / "SKILL.md").read_text()
-        for needle in ("YOUTUBE INSPIRATIONAL PROMPT", "PRODUCT PROMO BRIEF", "PRODUCT-SPECIFIC PROMO PROMPT",
-                       "MASTER CREATIVE FRAMEWORK", "product-brief.md", "inspiration-analysis.md",
-                       "creative-prompt.md", "storyboard.md", "timeline.json", "narration.txt",
-                       "render-config.json", "qa-report.md"):
+        for needle in ("MASTER CREATIVE FRAMEWORK", "product-brief.md", "CREATIVE_DIRECTION.md",
+                       "reference/breakdown.json", "creative-prompt.md", "timeline.json", "TEST_REPORT.md",
+                       "qa/validation.json", "promo/deliver/", "music: false", "--no-whisper"):
             self.assertIn(needle, md)
 
     def test_cli_exposes_the_pipeline(self):
-        for cmd in ("doctor", "init", "scan", "capture", "watch", "check", "adapt", "compile",
-                    "voice", "audio", "render", "qa", "build", "status"):
+        for cmd in ("doctor", "init", "questions", "scan", "capture", "watch", "direction", "check", "adapt",
+                    "storyboard", "compile", "voice", "audio", "render", "qa", "build", "deliver", "status"):
             self.assertIn(cmd, COMMANDS)
         self.assertEqual(build_parser().parse_args(["build", "--aspect", "9:16"]).aspect, ["9:16"])
+        md = (SKILL / "SKILL.md").read_text()
+        for cmd in ("questions", "watch", "direction", "adapt", "storyboard", "build", "deliver"):
+            self.assertIn(f'bin/promo" {cmd}', md, f"SKILL.md never runs `promo {cmd}`")
 
     def test_no_single_product_is_hard_coded(self):
         banned = re.compile(r"\b(sonnet|opus|haiku)\b|safemama|pregnan|claude\s+\d", re.I)
@@ -611,7 +624,8 @@ class RendererContract(unittest.TestCase):
 
 
 # End to end: compile → voice → audio → render → QA with the real renderer.
-@unittest.skipUnless(os.environ.get("PROMO_E2E") == "1", "set PROMO_E2E=1 to render a real film (slow)")
+@unittest.skipUnless("1" in (os.environ.get("PROMO_E2E"), os.environ.get("PROMO_RENDER")),
+                     "set PROMO_RENDER=1 to render a real film (slow)")
 class EndToEnd(unittest.TestCase):
     def test_build_renders_a_verified_film(self):
         env = Env().with_artifacts()

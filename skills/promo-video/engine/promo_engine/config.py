@@ -270,7 +270,7 @@ def init_workspace(ws: Workspace, *, product_root: Path, name: str | None = None
     write_json(ws.config_path, cfg)
     gi = ws.root / ".gitignore"
     if not gi.exists():
-        gi.write_text("# regenerable pipeline output\nbuild/\nout/\nqa/frames/\nqa/stills/\ninspiration/watch/\n"
+        gi.write_text("# regenerable pipeline output\nbuild/\nout/\ndeliver/\nqa/frames/\nqa/stills/\ninspiration/watch/\n"
                      "# measured evidence of a third-party video: regenerate with `promo watch`\nreference/frames/\n"
                      "reference/sheets/\n"
                      "# third-party transcript and local paths: regenerate with `promo watch`\n"

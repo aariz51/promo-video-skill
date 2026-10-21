@@ -31,11 +31,12 @@ and turns it into `render-config.json`, `storyboard.md` and `narration.txt`.
 |---|---|
 | `version` | always `1` |
 | `product` | name shown in reports |
-| `source` | `framework` (Path B) or `inspiration` (Path A) |
+| `source` | `framework` (Mode A, no reference) or `reference` (Mode B). `inspiration` is read for v4 workspaces. |
 | `seed` | integer; every scattered or orbiting element is placed from it. Same seed, same film. |
 | `style.preset` | `graphite` (near-black, default) · `midnight` (deep blue-black) · `paper` (light) |
 | `style.accent` / `ground` / `ink` | optional `#rrggbb` overrides; use the product's own accent |
-| `narration.enabled` | `true` by default. `false` requires `narration.reason`. |
+| `narration.enabled` | `true` by default. `false` requires `narration.reason`. Ignored unless the audio mode is `voiceover`. |
+| `reference` | Mode B only, written by `promo storyboard`: `breakdown` path, `fingerprint`, `runtime`, `scale`, `dropped` (`[{ref, reason}]`), and `runtimeDeviation` (reason) if the runtime departs from the reference by more than 20%. |
 
 ## Scene fields
 
@@ -43,18 +44,41 @@ and turns it into `render-config.json`, `storyboard.md` and `narration.txt`.
 |---|---|---|
 | `id` | yes | lowercase slug, unique |
 | `kind` | yes | one of the primitives below |
-| `duration` | yes | seconds, 1.5–30 |
+| `duration` | yes | seconds, 0.5–30 (fast references cut quicker than 1.5 s; a primitive still needs time for its own events) |
 | `purpose` | yes | the scene's job in the story (goes into the storyboard) |
 | `props` | yes | per kind, below. Media paths are relative to `promo/assets/`. |
-| `transition` | no | `{ "type": "fade" \| "light" \| "push" \| "zoom" \| "wipe" \| "cut", "duration": 0.5 }`: how this scene *enters*. Default `fade` 0.5 s. |
+| `transition` | no | how this scene *enters*, played over its first frames. Default `fade` 0.5 s. See **Transitions**. |
 | `narration` | no | a string, or `{ "text", "offset" }` (seconds after scene start, default 0.4) |
 | `claims` | when showing facts | claim ids from `product-brief.md`. **Any digit on screen or in narration needs one.** |
-| `source` | recommended | the inspiration rule (`R4`) or framework beat this scene realises |
+| `source` | recommended | the reference scene, rule (`R4`) or framework beat this scene realises |
+| `ref` | Mode B | the measured reference scene(s) this scene realises: `"S03"` or adjacent `["S03", "S04"]` |
+| `deviation` | when departing | why this scene differs from its reference scene in length, transition or order, or why it has no `ref` |
 | `sfx` | no | extra cues: `[{ "fx": "click", "at": 2.4, "vol": 0.8 }]`, `at` relative to the scene |
 | `autoSfx` | no | `false` turns off the scene's automatic sound design |
 
 Narration is checked against time: at about 2.7 words per second, a line must fit in the
-rest of its scene. The whole film must fit the configured duration range (60–100 s by default).
+rest of its scene. In Mode A the film must fit the configured duration range (60–100 s by
+default, or `init --runtime`). In Mode B the reference sets it: `check timeline` keeps every
+measured scene (or a dropped one with a reason), in order, within 35% of its scaled length,
+entered by the measured transition, and the runtime within 20%, unless a `deviation` says why.
+
+## Transitions
+
+| `type` | Looks like | Options |
+|---|---|---|
+| `cut` | the picture changes on one frame | none |
+| `fade` | cross-dissolve | `duration`, `easing` |
+| `push` | the new scene slides in with motion blur | `duration`, `direction` |
+| `wipe` | a moving edge reveals the new scene | `duration`, `direction`, `easing`, `sweep` |
+| `dip` | through black or white, then out | `duration`, `color` `black` \| `white` |
+| `zoom` | the old scene rushes away, the new one settles in | `duration` |
+| `light` | a bloom of light carries the cut | `duration` |
+
+`direction` is the way the edge (wipe) or picture (push) travels: `left` `right` `up` `down`
+(default `right`). `easing` is the speed profile: `linear` `in` `out` `inOut` (default `out`);
+`promo storyboard` sets it from the reference's measured curve. `sweep: false` removes the
+accent light that rides a wipe's edge (Mode B sets it for a measured plain wipe). QA measures
+each transition in the encoded file at its planned time.
 
 ## Primitives
 
@@ -120,7 +144,9 @@ The light returns and contracts into the name; closing line; fade.
 ## Sound effects
 
 `click` `pop` `pop2` `whoosh` `chime` `type` `tick` `tick2` `drag` `sparkle` `riser` `rise`
-`thud` `kick` `dive` `ascent` `braam`. All are short. There is no music file to reference.
+`thud` `kick` `dive` `ascent` `braam`. All are short and synthesised by the engine
+(`engine/promo_engine/sfx_synth.py`); there is no music file to reference. In `effects` mode
+only effects play; in `silent` mode none do and the film has no audio stream.
 
 Automatic cues (turn off per scene with `autoSfx: false`): risers into light transitions,
 whooshes on push/zoom/wipe, an impact on the hook's freeze, keystrokes while a command

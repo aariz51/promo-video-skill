@@ -7,9 +7,12 @@ The master is **1920×1080 (16:9)**. The same `timeline.json` renders at:
 | 16:9 | `Promo16x9` | 1920×1080 | `promo render` (default) |
 | 9:16 | `Promo9x16` | 1080×1920 | `promo render --aspect 9:16` |
 | 1:1 | `Promo1x1` | 1080×1080 | `promo render --aspect 1:1` |
+| store-portrait | `PromoStorePortrait` | 886×1920 | `promo render --aspect store-portrait` |
+| store-landscape | `PromoStoreLandscape` | 1920×886 | `promo render --aspect store-landscape` |
 
-To render all three every time, set `"format": {"aspects": ["16:9", "9:16", "1:1"]}` in
-`promo.config.json`.
+Choose formats once with `promo init --formats 16:9 store-portrait …`; only those are
+rendered. Draft renders are half size, except the App Store sizes (886 / 2 is odd, which
+H.264 cannot encode), which render drafts at full size.
 
 ## How scenes adapt
 
@@ -30,6 +33,6 @@ If a vertical cut needs a genuinely different story (shorter, different hero), c
 
 ## Store previews
 
-App Store previews must be 15–30 s at the device's exact size. Make a separate workspace
-with `"duration": {"min": 15, "max": 30}` and a short timeline rather than speeding up the
-master.
+App Store previews must be 15–30 s at the device's exact size (886×1920 or 1920×886
+for the 6.5" iPhone). Make a separate workspace with `promo init --runtime 15-30 --formats
+store-portrait` and a short timeline rather than speeding up the master.

@@ -10,9 +10,12 @@ contributions extend one layer.
 |---|---|---|
 | Understand more kinds of products | `engine/promo_engine/analyzer.py` (manifests, routers, design tokens) | `ProductAnalysis` tests |
 | Improve the default creative direction | `framework/master-creative-framework.md` | `CreativeTransformation` tests |
-| Tighten an artifact contract | `framework/*.template.md` + `artifacts.py` | `InspirationPrompt`, `ProductAnalysis` |
+| Tighten an artifact contract | `framework/*.template.md` + `artifacts.py`, `direction.py` | `ProductAnalysis`, `test_direction` |
+| Measure more of a reference | `engine/promo_engine/reference.py` (+ a synthetic profile in `tests/helpers.py`) | `test_reference` |
+| Map a measured device into the build | `direction.implementation`, `timeline.py`, `renderer/src/transitions.tsx` | `test_direction`, `test_render` |
 | Add a motion primitive | `timeline.py` (`KINDS`, `_schedule`), `sound.py`, `renderer/src/scenes/`, `docs/timeline.md` | `RendererContract`, `TimelineEngine` |
-| Add a QA check | `qa.py` | `QualityAssurance` |
+| Add a QA check | `qa.py` | `QualityAssurance`, `test_render` |
+| Change audio behaviour | `config.py` (policy), `voiceover.py`, `audio.py`, `sfx_synth.py` | `test_audio_modes` |
 | Support another renderer | consume `render-config.json` + the staged public dir, like `render.py` | `RenderFailures` |
 
 See `skills/promo-video/docs/motion-language.md` for the rules a new primitive must follow
@@ -25,15 +28,19 @@ See `skills/promo-video/docs/motion-language.md` for the rules a new primitive m
 - **Determinism.** No `Math.random`, no wall clock. Scatter comes from `seed`.
 - **Honesty is enforced in code.** Don't loosen a fact or originality check to make a film
   pass; fix the timeline.
-- **No music.** Don't add music files or a way to reference them.
+- **No music.** Don't add music files, a way to reference them, or a value of `audio.music`
+  other than `false`.
+- **Measure, then claim.** A reference analysis feature needs a synthetic fixture with known
+  ground truth and a test that recovers it; a renderer feature needs a real-render test that
+  measures it in the encoded file.
 - **Secrets.** Never read `.env` files or key files; read keys only from the environment
   and never log them.
 
 ## Developing
 
 ```bash
-python3 -m unittest discover -s tests              # engine + contracts (fast)
-PROMO_E2E=1 python3 -m unittest discover -s tests  # plus a real render
+python3 -m unittest discover -s tests                 # engine, contracts, analyzer, audio (~2 min)
+PROMO_RENDER=1 python3 -m unittest discover -s tests  # plus real renders of both modes (~2–3 min more)
 cd skills/promo-video/renderer && npm ci && npx tsc --noEmit
 npx remotion studio                                # preview primitives with sample props
 ```
