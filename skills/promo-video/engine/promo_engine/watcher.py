@@ -18,6 +18,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from . import reference_input
 from .config import Workspace
 from .util import PromoError, fmt_time, parse_time, run, write_json
 from .youtube import parse_youtube_url
@@ -141,12 +142,11 @@ def _fallback_download(url: str, dest: Path) -> Path | None:
 
 def watch(ws: Workspace, source: str, *, detail: str = "balanced", script: Path | None = None) -> dict:
     """Watch the inspiration video and write inspiration/evidence.json + pacing.json."""
-    local = Path(source).expanduser()
-    if local.is_file():
-        src, video_id = str(local.resolve()), None
-    else:
-        vid = parse_youtube_url(source)
-        src, video_id = vid.url, vid.id
+    ref = reference_input.resolve(source, base=Path.cwd())
+    if ref.kind == "none":
+        raise PromoError("there is no reference video to watch (the run is in autonomous mode)")
+    src = ref.source
+    video_id = parse_youtube_url(src).id if ref.kind == "youtube" else None
     script = script or find_watch_skill() / "scripts" / "watch.py"
     work = ws.inspiration_dir / "watch"
     work.mkdir(parents=True, exist_ok=True)
@@ -162,8 +162,8 @@ def watch(ws: Workspace, source: str, *, detail: str = "balanced", script: Path 
         tail = "\n  ".join((err or out).strip().splitlines()[-6:])
         raise PromoError(
             f"could not analyse the inspiration video ({src}).\n  {tail}",
-            hint="check the URL is public and not age/region-locked, or continue without inspiration "
-                 "(the master creative framework is used instead). No analysis is invented.",
+            hint="check the URL is public, not age/region-locked, and points at one video (or supply a local "
+                 "file), or continue without a reference (autonomous mode). No analysis is invented.",
         )
     (ws.inspiration_dir / "watch-report.md").write_text(out)
     ev = parse_report(out)

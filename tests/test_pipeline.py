@@ -91,8 +91,11 @@ class YouTubeUrls(unittest.TestCase):
     def test_init_rejects_a_bad_url_before_any_work(self):
         env = Env()
         try:
-            code = main(["-w", str(env.ws.root), "init", "--product", str(env.product), "--inspiration", "https://vimeo.com/1"])
-            self.assertEqual(code, 1)
+            before = env.ws.config_path.read_text()
+            for bad in ("https://www.youtube.com/@somechannel", "ftp://example.com/a.mp4", "./missing-ref.mp4"):
+                code = main(["-w", str(env.ws.root), "init", "--product", str(env.product), "--reference", bad])
+                self.assertEqual(code, 1, bad)
+            self.assertEqual(env.ws.config_path.read_text(), before, "nothing is written for a rejected reference")
         finally:
             env.close()
 
@@ -212,8 +215,10 @@ class WatchAdapter(unittest.TestCase):
 
     def test_invalid_url_never_reaches_the_watcher(self):
         script = fake_watch_script(self.env.tmp / "unused")
-        with self.assertRaises(PromoError):
-            watcher.watch(self.env.ws, "https://vimeo.com/1", script=script)
+        for bad in ("https://www.youtube.com/@somechannel", "ftp://example.com/v.mp4", "none"):
+            with self.assertRaises(PromoError, msg=bad):
+                watcher.watch(self.env.ws, bad, script=script)
+        self.assertFalse((self.env.ws.inspiration_dir / "watch").exists(), "the watcher never ran")
 
     def test_missing_watch_skill_explains_how_to_install(self):
         with mock.patch.dict(os.environ, {"PROMO_WATCH_SKILL_DIR": "/nonexistent"}), \

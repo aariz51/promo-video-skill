@@ -16,7 +16,7 @@ import re
 from pathlib import Path
 
 from .artifacts import TIMESTAMP, parse_claims, parse_rules, sections, _strip_comments
-from .config import Workspace
+from .config import Workspace, mode, reference_source
 from .util import FRAMEWORK_DIR, PromoError, read_json
 
 _RANGE = re.compile(r"(\d{1,2}):(\d{2}(?:\.\d+)?)\s*[–—-]\s*(\d{1,2}):(\d{2}(?:\.\d+)?)")
@@ -79,7 +79,7 @@ def scaffold(ws: Workspace, *, force: bool = False) -> Path:
     claims = parse_claims(ws.brief.read_text())
     name = cfg["product"]["name"] or "the product"
     lo, hi = cfg["duration"]["min"], cfg["duration"]["max"]
-    use_inspiration = ws.inspiration.exists() and bool(cfg["inspiration"].get("url"))
+    use_inspiration = ws.inspiration.exists() and mode(cfg) == "reference"
 
     lines = ["# PRODUCT-SPECIFIC PROMO PROMPT", ""]
     if use_inspiration:
@@ -93,7 +93,7 @@ def scaffold(ws: Workspace, *, force: bool = False) -> Path:
         runtime = target_runtime(src_dur, lo, hi)
         k = runtime / src_dur
         rules = parse_rules(md)
-        lines += [f"Source of creative structure: YOUTUBE INSPIRATIONAL PROMPT ({cfg['inspiration']['url']})",
+        lines += [f"Source of creative structure: YOUTUBE INSPIRATIONAL PROMPT ({reference_source(cfg)})",
                   f"Product: {name}",
                   f"Target runtime: {runtime:.0f} s (source {src_dur:.1f} s, time scale ×{k:.2f}) · Master: 1920×1080 16:9 · Adaptations: 9:16, 1:1",
                   "", "## CORE MESSAGE", "", "TODO: one sentence, then the three carrying ideas, from the brief.",

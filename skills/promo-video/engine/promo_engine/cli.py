@@ -17,10 +17,11 @@ import shutil
 import sys
 from pathlib import Path
 
-from . import adapter, analyzer, artifacts, audio, capture, qa, render, timeline, voiceover, watcher
-from .config import ASPECTS, QUALITY, Workspace, init_workspace
+from . import adapter, analyzer, artifacts, audio, capture, providers, qa, questions, reference_input, render, \
+    timeline, voiceover, watcher
+from .config import AUDIO_MODES, ASPECTS, PROVIDER_KEYS, QUALITY, Workspace, audio_mode, init_workspace, mode, \
+    reference_source
 from .util import RENDERER_DIR, PromoError, Report, free_gb, read_json, write_json
-from .youtube import parse_youtube_url
 
 
 def _ws(args) -> Workspace:
@@ -47,8 +48,9 @@ def cmd_doctor(args) -> int:
         rows.append(("watch skill", True, str(watcher.find_watch_skill())))
     except PromoError as exc:
         rows.append(("watch skill", False, f"{exc} (only needed with an inspiration video)"))
-    rows.append(("voice: openrouter", bool(os.environ.get("OPENROUTER_API_KEY")),
-                 "OPENROUTER_API_KEY set" if os.environ.get("OPENROUTER_API_KEY") else "OPENROUTER_API_KEY not set"))
+    for prov, var in PROVIDER_KEYS.items():
+        # Only whether the variable is set; the value is never printed.
+        rows.append((f"voice: {prov}", bool(os.environ.get(var)), f"{var} {'set' if os.environ.get(var) else 'not set'}"))
     rows.append(("voice: say", bool(shutil.which("say")), "macOS say" if shutil.which("say") else "not macOS"))
     try:
         rows.append(("chrome (capture)", True, capture.find_chrome()))
@@ -62,15 +64,48 @@ def cmd_doctor(args) -> int:
     return 0 if all(ok for n, ok, _ in rows if n in essential) else 1
 
 
+def _runtime(text: str | None) -> tuple[int, int] | None:
+    if not text:
+        return None
+    parts = [int(float(x)) for x in text.replace("–", "-").split("-") if x.strip()]
+    if len(parts) == 1:
+        parts = [max(10, parts[0] - 5), parts[0] + 5]
+    if len(parts) != 2:
+        raise PromoError(f"runtime must be seconds or a range like 30-45, not {text!r}")
+    return parts[0], parts[1]
+
+
 def cmd_init(args) -> int:
     ws = _ws(args)
-    url = None
-    if args.inspiration and args.inspiration.lower() != "none":
-        url = parse_youtube_url(args.inspiration).url
-    path = init_workspace(ws, product_root=Path(args.product), name=args.name,
-                          inspiration_url=url if args.inspiration else None)
+    raw = args.reference if args.reference is not None else args.inspiration
+    ref = reference_input.resolve(raw, base=Path.cwd()).as_config() if raw is not None else None
+    if args.provider and args.provider not in ("auto",):
+        providers.require(args.provider)
+    path = init_workspace(ws, product_root=Path(args.product), name=args.name, reference=ref,
+                          audio=args.audio, provider=None if args.provider in (None, "auto") else args.provider,
+                          aspects=args.formats, runtime=_runtime(args.runtime))
+    cfg = ws.config()
     print(f"Workspace ready: {ws.root}\nConfig: {path}")
-    print("Workflow:", "inspiration → " + url if url else "master creative framework (no inspiration)")
+    src = reference_source(cfg)
+    print("Mode:", f"reference-driven ({cfg['reference']['kind']}: {src})" if src else
+          "autonomous (master creative framework)" if "reference" in cfg["decided"] else "not decided yet")
+    print("Audio:", audio_mode(cfg) + (" (music: never)" if "audio" in cfg["decided"] else " (default; not decided yet)"))
+    open_q = questions.plan(ws)
+    if open_q:
+        print(f"Open questions: {', '.join(q['id'] for q in open_q)} (see `promo questions`)")
+    return 0
+
+
+def cmd_questions(args) -> int:
+    ws = _ws(args)
+    qs = questions.plan(ws)
+    if args.json:
+        print(json.dumps(qs, indent=2))
+    elif not qs:
+        print("Nothing to ask: every opening decision is known.")
+    else:
+        for q in qs:
+            print(f"- [{q['id']}] {q['question']}\n    record with: {q['answer']}")
     return 0
 
 
@@ -100,7 +135,10 @@ def cmd_capture(args) -> int:
 
 def cmd_watch(args) -> int:
     ws = _ws(args)
-    ev = watcher.watch(ws, args.url, detail=args.detail)
+    source = args.url or reference_source(ws.config())
+    if not source:
+        raise PromoError("no reference video is configured", hint="`promo init --reference <url|path>` first")
+    ev = watcher.watch(ws, source, detail=args.detail)
     print(watcher.evidence_summary(ev))
     print(f"\nEvidence: {ws.evidence}\nRead every frame listed there before writing {ws.inspiration.name}.")
     return 0
@@ -117,7 +155,7 @@ def cmd_check(args) -> int:
     rep = Report()
     what = args.what
     cfg = ws.config()
-    uses_insp = bool(cfg["inspiration"].get("url"))
+    uses_insp = mode(cfg) == "reference"
     if what in ("inspiration", "all") and (what == "inspiration" or uses_insp):
         if not ws.inspiration.exists():
             rep.error(ws.inspiration.name, "missing")
@@ -247,14 +285,14 @@ def cmd_status(args) -> int:
         print(f"No workspace at {ws.root}. Start with `promo init`.")
         return 1
     cfg = ws.config()
-    insp = cfg["inspiration"].get("url")
+    insp = reference_source(cfg)
     steps = [("config", ws.config_path), ("product scan", ws.scan), ("product brief", ws.brief)]
     if insp:
         steps += [("watch evidence", ws.evidence), ("inspiration prompt", ws.inspiration)]
     steps += [("creative prompt", ws.creative), ("timeline", ws.timeline), ("render config", ws.render_config),
               ("voiceover", ws.vo_dir / "manifest.json"), ("audio master", ws.master_audio),
               ("qa report", ws.qa_report)]
-    print(f"Workspace {ws.root} · workflow: {'inspiration ' + insp if insp else 'master framework'}")
+    print(f"Workspace {ws.root} · mode: {'reference ' + insp if insp else 'autonomous'} · audio: {audio_mode(cfg)}")
     for name, p in steps:
         print(f"  {'✓' if p.exists() else '·'} {name:<20} {p.relative_to(ws.root)}")
     return 0
@@ -268,7 +306,14 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("init", help="create the workspace")
     p.add_argument("--product", default=".", help="product repository root (default .)")
     p.add_argument("--name", help="product name as it should appear on screen")
-    p.add_argument("--inspiration", help="YouTube URL, or 'none'")
+    p.add_argument("--reference", help="reference video: URL, local file path, or 'none' (decides the mode)")
+    p.add_argument("--inspiration", help=argparse.SUPPRESS)  # v4 name for --reference
+    p.add_argument("--audio", choices=list(AUDIO_MODES), help="voiceover (+effects) | effects | silent; never music")
+    p.add_argument("--provider", choices=sorted({"auto", "openrouter", "openai", "say", "files"}))
+    p.add_argument("--formats", nargs="+", choices=list(ASPECTS))
+    p.add_argument("--runtime", help="seconds, or a range like 30-45")
+    p = sub.add_parser("questions", help="the opening questions still open (never re-asks a decided one)")
+    p.add_argument("--json", action="store_true")
     sub.add_parser("status", help="show which artifacts exist")
     sub.add_parser("scan", help="analyse the product repository → product-scan.json")
     p = sub.add_parser("capture", help="screenshot the running product into assets/captures/")
@@ -277,8 +322,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--size", choices=sorted(capture.SIZES), default="desktop")
     p.add_argument("--launch", action="store_true", help="start the product with its dev command first")
     p.add_argument("--cmd", help="launch command override")
-    p = sub.add_parser("watch", help="analyse the inspiration video with the watch skill")
-    p.add_argument("url")
+    p = sub.add_parser("watch", help="analyse the reference video with the watch skill")
+    p.add_argument("url", nargs="?", help="default: the configured reference")
     p.add_argument("--detail", default="balanced", choices=["efficient", "balanced", "token-burner"])
     p = sub.add_parser("check", help="validate an artifact")
     p.add_argument("what", choices=["inspiration", "brief", "creative", "timeline", "all"])
@@ -286,7 +331,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--force", action="store_true")
     sub.add_parser("compile", help="timeline.json → render-config.json, storyboard.md, narration.txt")
     p = sub.add_parser("voice", help="render the narration")
-    p.add_argument("--provider", choices=sorted({"auto", "openrouter", "say", "files", "none"}))
+    p.add_argument("--provider", choices=sorted({"auto", "openrouter", "openai", "say", "files", "none"}))
     sub.add_parser("audio", help="mix effects + voice into the master (no music)")
     p = sub.add_parser("stills", help="render one frame per scene at any aspect, without a full render")
     p.add_argument("--aspect", action="append", choices=sorted(ASPECTS))
@@ -298,11 +343,11 @@ def build_parser() -> argparse.ArgumentParser:
         p.add_argument("--aspect", action="append", choices=sorted(ASPECTS))
         p.add_argument("--quality", choices=["draft", "final"])
         if name == "build":
-            p.add_argument("--provider", choices=sorted({"auto", "openrouter", "say", "files", "none"}))
+            p.add_argument("--provider", choices=sorted({"auto", "openrouter", "openai", "say", "files", "none"}))
     return ap
 
 
-COMMANDS = {"doctor": cmd_doctor, "init": cmd_init, "status": cmd_status, "scan": cmd_scan,
+COMMANDS = {"doctor": cmd_doctor, "init": cmd_init, "questions": cmd_questions, "status": cmd_status, "scan": cmd_scan,
             "capture": cmd_capture, "watch": cmd_watch, "check": cmd_check, "adapt": cmd_adapt,
             "compile": cmd_compile, "voice": cmd_voice, "audio": cmd_audio, "render": cmd_render,
             "qa": cmd_qa, "build": cmd_build, "stills": cmd_stills}

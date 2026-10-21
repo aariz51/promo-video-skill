@@ -9,10 +9,10 @@ Audit: [engineering-audit.md](engineering-audit.md). Run evidence: [TEST_REPORT.
 | ID | Requirement | File / subsystem | Evidence | Status | Blocker |
 |---|---|---|---|---|---|
 | BASE-1 | Audio mixer works on ffmpeg 6–9 (no `-filter_complex_script`) | engine/audio.py | `AudioMix.test_mix_is_effects_and_voice_only` passes on ffmpeg 9.0.2 | PASS | |
-| CFG-1 | One canonical run config `audio {voiceover, soundEffects, music:false}`; music can never be enabled; invalid config rejected | engine/config.py | | NOT_STARTED | |
-| CFG-2 | Mode chosen from input: none → A; YouTube / other video URL / local video file → B; bad input is an error, never a guess | engine/reference_input.py, cli init | | NOT_STARTED | |
-| CFG-3 | Opening questions computed from what is known; nothing already supplied is asked again | engine/questions.py, cli `questions` | | NOT_STARTED | |
-| CFG-4 | Voice provider resolved explicitly and recorded; ambiguity is asked; no silent substitution | engine/config.py, voiceover.py | | NOT_STARTED | |
+| CFG-1 | One canonical run config `audio {voiceover, soundEffects, music:false}`; music can never be enabled; invalid config rejected | engine/config.py | `test_modes.RunConfiguration` (3 modes → policy; music True/'ambient'/None/1 rejected; voice-only and unknown keys rejected; persisted `music:false`) | PASS |  |
+| CFG-2 | Mode chosen from input: none → A; YouTube / other video URL / local video file → B; bad input is an error, never a guess | engine/reference_input.py, cli init | `test_modes.ModeSelection` (none/YouTube/other URL/local file; undecodable, truncated, audio-only, missing, wrong-type files rejected; text never guessed as URL); `test_init_rejects_a_bad_url_before_any_work` | PASS |  |
+| CFG-3 | Opening questions computed from what is known; nothing already supplied is asked again | engine/questions.py, cli `questions` | `test_modes.OpeningQuestions` (reference then audio first; all-supplied → no questions; repo facts not asked; bare repo asks product+assets; runtime skipped with a reference) | PASS |  |
+| CFG-4 | Voice provider resolved explicitly and recorded; ambiguity is asked; no silent substitution | engine/config.py, voiceover.py | `providers.py` + `test_modes.VoiceProviders`; voiceover.py not yet switched to it | IN_PROGRESS |  |
 | AUD-1 | Voice-over + effects mode: narration and effects, never music | voiceover.py, audio.py, qa.py | | NOT_STARTED | |
 | AUD-2 | Effects-only mode: no speech generated, mix has no voice | voiceover.py, audio.py, qa.py | | NOT_STARTED | |
 | AUD-3 | Silent mode: no voice, no effects, no mix, exported file has no audio stream | render.py, qa.py | | NOT_STARTED | |
@@ -24,7 +24,7 @@ Audit: [engineering-audit.md](engineering-audit.md). Run evidence: [TEST_REPORT.
 | REF-2 | Scene boundaries and transition types (cut / dissolve / dip) measured from pixels | engine/reference.py | | NOT_STARTED | |
 | REF-3 | Evidence frames per scene and transition, timestamped contact sheets | engine/reference.py | | NOT_STARTED | |
 | REF-4 | Machine-readable breakdown + motion spec with full-duration coverage | engine/reference.py | | NOT_STARTED | |
-| REF-5 | Missing watch, inaccessible URL, failed download, malformed and truncated files fail loudly | watcher.py, reference.py | | NOT_STARTED | |
+| REF-5 | Missing watch, inaccessible URL, failed download, malformed and truncated files fail loudly | watcher.py, reference.py | `test_modes.ReferenceFailures` (inaccessible URL → no evidence/breakdown/direction; YouTube fallback tried; missing watch detected); reference-analysis stage pending | IN_PROGRESS |  |
 | REF-6 | Analysis cached by input fingerprint | engine/reference.py | | NOT_STARTED | |
 | DIR-1 | CREATIVE_DIRECTION.md (Mode B): 20 fields per scene, transitions, motion spec, decisions; validated | engine/direction.py | | NOT_STARTED | |
 | DIR-2 | Reference-derived storyboard skeleton (scene count, durations, transitions from the breakdown) | engine/direction.py, cli `storyboard` | | NOT_STARTED | |
